@@ -1,0 +1,139 @@
+# Screen 4 — Bidding Phase
+
+Overlaid on the game board. Sequential clockwise starting left of dealer. Three sub-states below.
+
+---
+
+## 4a — Waiting (another player's turn)
+
+A speech bubble appears above the active player's avatar. Local player watches.
+
+```
+┌─────────────────────────┐
+│  ┌──────┐   ┌─────────┐ │
+│  │  ?   │   │Score: 24│ │  ← Trump unknown yet (shows "?")
+│  └──────┘   └─────────┘ │
+│                         │
+│       ┌──────────┐      │
+│       │  NORTH   │      │
+│       │  Jordan  │      │  ← Jordan is active bidder
+│       │          │      │
+│  ╔════╧══════════╧════╗ │
+│  ║  "Bid 10 ♥"        ║ │  ← Speech bubble (or "Pass")
+│  ╚════════════════════╝ │
+│                         │
+│  ┌────────┐  ┌────────┐ │
+│  │  WEST  │  │  EAST  │ │
+│  │  Sam   │  │  Riley │ │
+│  │  Pass  │  │        │ │  ← Sam already passed (greyed speech bubble)
+│  └────────┘  └────────┘ │
+│                         │
+│      [center empty]     │
+│                         │
+│       ┌──────────┐      │
+│       │  SOUTH   │      │
+│       │   Alex   │      │
+│       │  (you)   │      │
+│       └──────────┘      │
+│                         │
+│  ┌─────────────────────┐│
+│  │  Bidding in progress│ │  ← Status label, no controls for local player yet
+│  └─────────────────────┘│
+│                         │
+│ ┌──────────────────────┐│
+│ │ 5♣ 6♣ 8♥ 9♥ J♥ K♥ A♥││  ← Hand visible but not interactive yet
+│ │ 2♠ 5♠ 7♦ 9♦ J♦ A♦   ││
+│ └──────────────────────┘│
+└─────────────────────────┘
+```
+
+---
+
+## 4b — Local Player's Turn (bid ≥10 or pass)
+
+```
+┌─────────────────────────┐
+│  ┌──────┐   ┌─────────┐ │
+│  │  ?   │   │Score: 24│ │
+│  └──────┘   └─────────┘ │
+│                         │
+│       ┌──────────┐      │
+│       │  NORTH   │      │
+│       │  Jordan  │      │
+│       │  (partner│      │
+│       └──────────┘      │
+│                         │
+│  ┌────────┐  ┌────────┐ │
+│  │  WEST  │  │  EAST  │ │
+│  │  Sam   │  │  Riley │ │
+│  │  Pass  │  │  Pass  │ │  ← Both passed already
+│  └────────┘  └────────┘ │
+│                         │
+│  ┌─────────────────────┐│
+│  │  Your turn to bid   ││  ← Prompt
+│  └─────────────────────┘│
+│                         │
+│  [Ask Partner]  [Pass]  │  ← Two action buttons
+│                         │
+│  ─────── OR BID ──────  │
+│                         │
+│  ♠   ♥   ♦   ♣          │  ← Trump suit selector (tap to select)
+│      [●]                │     ♥ selected (highlighted)
+│                         │
+│  ┌──┐               ┌──┐│
+│  │ < │   BID: 10    │ > ││  ← Bid picker, range 10–13
+│  └──┘               └──┘│
+│                         │
+│  ┌───────────────────┐  │
+│  │   CONFIRM BID ♥10 │  │  ← Disabled until suit + number chosen
+│  └───────────────────┘  │
+│                         │
+│ ┌──────────────────────┐│
+│ │ 5♣ 6♣ 8♥ 9♥ J♥ K♥ A♥││
+│ │ 2♠ 5♠ 7♦ 9♦ J♦ A♦   ││
+│ └──────────────────────┘│
+└─────────────────────────┘
+```
+
+### Support Signal sub-flow
+
+Tapping "Ask Partner" sends a signal request. Partner responds and a speech bubble appears above their avatar:
+
+```
+       ┌──────────┐
+       │  NORTH   │
+       │  Jordan  │
+  ╔════╧══════════╧════╗
+  ║  "Major"           ║   ← Major / Minor / Pass
+  ╚════════════════════╝
+       (visible to all)
+```
+
+The "Ask Partner" button greys out after use (one ask per turn).
+
+---
+
+## 4c — Forced Bid (all 4 players passed)
+
+Identical to 4b with two changes:
+- **Pass button is disabled** (greyed out, labelled "Must Bid")
+- **Bid picker range: 8–13** instead of 10–13
+
+```
+│  [Ask Partner]  [Must Bid]  │  ← Pass button greyed/disabled
+│                             │
+│  ♠   ♥   ♦   ♣              │
+│                             │
+│  ┌──┐               ┌──┐   │
+│  │ < │   BID: 8     │ > │   │  ← Starts at 8
+│  └──┘               └──┘   │
+```
+
+---
+
+## Notes
+
+- Speech bubbles from past actions remain faded until the round ends (audit trail)
+- If the local player bids ≥10, the flow continues to Screen 5 (Partner Hand Reveal)
+- If the local player passes and someone else bids, the flow jumps to Screen 6 (Playing)
+- The hand is always visible but cards are not tappable during bidding
