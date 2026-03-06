@@ -277,16 +277,16 @@ function onLeave() {
     </div>
 
     <!-- Score badges -->
-    <div v-if="bid != null && isPlaying" class="absolute top-3 left-3 z-10">
-      <div class="bg-blue-600 border border-blue-400/30 rounded-xl px-3 py-1.5 text-center shadow-lg">
-        <span class="text-white font-black text-2xl">{{ myTeamTricks }}</span>
-        <span class="text-blue-200 text-base"> of {{ myTeamTarget }}</span>
+    <div v-if="bid != null && isPlaying" class="absolute top-[55%] left-2 z-10">
+      <div class="bg-blue-600 border border-blue-400/30 rounded-xl px-2.5 py-1 text-center shadow-lg">
+        <span class="text-white font-black text-xl">{{ myTeamTricks }}</span>
+        <span class="text-blue-200 text-sm"> / {{ myTeamTarget }}</span>
       </div>
     </div>
-    <div v-if="bid != null && isPlaying" class="absolute top-3 right-3 z-10">
-      <div class="bg-red-600 border border-red-400/30 rounded-xl px-3 py-1.5 text-center shadow-lg">
-        <span class="text-white font-black text-2xl">{{ oppTeamTricks }}</span>
-        <span class="text-red-200 text-base"> of {{ oppTeamTarget }}</span>
+    <div v-if="bid != null && isPlaying" class="absolute top-[55%] right-2 z-10">
+      <div class="bg-red-600 border border-red-400/30 rounded-xl px-2.5 py-1 text-center shadow-lg">
+        <span class="text-white font-black text-xl">{{ oppTeamTricks }}</span>
+        <span class="text-red-200 text-sm"> / {{ oppTeamTarget }}</span>
       </div>
     </div>
 

@@ -62,7 +62,7 @@ const containerHeight = () => props.compact ? '70px' : '120px'
 </script>
 
 <template>
-  <div class="px-2 pb-2 pt-1">
+  <div class="px-6 pb-3 pt-1">
     <div v-if="label" class="text-xs text-slate-400 uppercase tracking-wider mb-1 px-1 text-center">{{ label }}</div>
     <div class="relative w-full" :style="`height: ${containerHeight()};`">
       <div
