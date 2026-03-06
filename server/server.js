@@ -5,6 +5,7 @@ const { createServer } = require('http');
 const { Server } = require('socket.io');
 const { SurriGame } = require('./gameLogic');
 const { AIPlayer } = require('./aiPlayer');
+const { createIssue } = require('./githubIssue');
 
 const app = express();
 const httpServer = createServer(app);
@@ -148,6 +149,147 @@ async function runBotTurns(roomCode) {
     room._botRunning = false;
   }
 }
+
+// ---------------------------------------------------------------------------
+// REST / Dashboard
+// ---------------------------------------------------------------------------
+
+app.use(express.json());
+
+app.get('/api/stats', (req, res) => {
+  const activeRooms = [];
+  let totalPlayers = 0;
+  let totalBots = 0;
+
+  for (const [code, room] of rooms) {
+    const players = room.seats.filter(s => s && !s.isBot);
+    const bots = room.seats.filter(s => s && s.isBot);
+    const connectedPlayers = players.filter(s => s.isConnected);
+    totalPlayers += connectedPlayers.length;
+    totalBots += bots.length;
+    activeRooms.push({
+      code,
+      gameStarted: room.gameStarted,
+      phase: room.game?.phase || null,
+      round: room.game?.round ?? null,
+      trick: room.game ? room.game.tricksWon[0] + room.game.tricksWon[1] + 1 : null,
+      players: players.map(s => ({ name: s.name, connected: s.isConnected })),
+      botCount: bots.length,
+    });
+  }
+
+  res.json({
+    timestamp: new Date().toISOString(),
+    totalRooms: rooms.size,
+    totalPlayers,
+    totalBots,
+    connectedSockets: io.engine?.clientsCount ?? socketToRoom.size,
+    rooms: activeRooms,
+  });
+});
+
+app.get('/dashboard', (req, res) => {
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Surri - Dashboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f1b2d; color: #e2e8f0; padding: 24px; }
+    h1 { font-size: 1.5rem; margin-bottom: 8px; color: #93c5fd; }
+    .subtitle { color: #64748b; font-size: 0.85rem; margin-bottom: 24px; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 32px; }
+    .stat-card { background: #1e293b; border-radius: 12px; padding: 20px; text-align: center; }
+    .stat-value { font-size: 2rem; font-weight: 700; color: #60a5fa; }
+    .stat-label { font-size: 0.8rem; color: #94a3b8; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .rooms-section h2 { font-size: 1.1rem; color: #93c5fd; margin-bottom: 12px; }
+    .room-card { background: #1e293b; border-radius: 10px; padding: 16px; margin-bottom: 12px; }
+    .room-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .room-code { font-weight: 700; font-size: 1.1rem; color: #f59e0b; font-family: monospace; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; }
+    .badge-waiting { background: #1e3a5f; color: #60a5fa; }
+    .badge-playing { background: #064e3b; color: #34d399; }
+    .room-details { font-size: 0.8rem; color: #94a3b8; }
+    .room-details span { margin-right: 16px; }
+    .player-list { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+    .player-tag { background: #334155; padding: 2px 10px; border-radius: 6px; font-size: 0.75rem; }
+    .player-tag.disconnected { opacity: 0.5; text-decoration: line-through; }
+    .empty-state { color: #475569; text-align: center; padding: 40px; }
+    .refresh-info { color: #475569; font-size: 0.75rem; text-align: center; margin-top: 24px; }
+    .pulse { animation: pulse 2s ease-in-out infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+  </style>
+</head>
+<body>
+  <h1>Surri Dashboard</h1>
+  <p class="subtitle">Real-time server stats <span id="status" class="pulse">&#9679;</span></p>
+
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-value" id="totalRooms">-</div><div class="stat-label">Active Rooms</div></div>
+    <div class="stat-card"><div class="stat-value" id="totalPlayers">-</div><div class="stat-label">Human Players</div></div>
+    <div class="stat-card"><div class="stat-value" id="totalBots">-</div><div class="stat-label">Bots</div></div>
+    <div class="stat-card"><div class="stat-value" id="connectedSockets">-</div><div class="stat-label">Connections</div></div>
+  </div>
+
+  <div class="rooms-section">
+    <h2>Active Rooms</h2>
+    <div id="roomsList"><div class="empty-state">Loading...</div></div>
+  </div>
+
+  <div class="refresh-info">Auto-refreshes every 5 seconds</div>
+
+  <script>
+    async function fetchStats() {
+      try {
+        const res = await fetch('/api/stats');
+        const data = await res.json();
+
+        document.getElementById('totalRooms').textContent = data.totalRooms;
+        document.getElementById('totalPlayers').textContent = data.totalPlayers;
+        document.getElementById('totalBots').textContent = data.totalBots;
+        document.getElementById('connectedSockets').textContent = data.connectedSockets;
+        document.getElementById('status').style.color = '#34d399';
+
+        const container = document.getElementById('roomsList');
+        if (data.rooms.length === 0) {
+          container.innerHTML = '<div class="empty-state">No active rooms</div>';
+          return;
+        }
+
+        container.innerHTML = data.rooms.map(room => {
+          const phase = room.gameStarted
+            ? (room.phase || 'playing')
+            : 'waiting';
+          const badgeClass = room.gameStarted ? 'badge-playing' : 'badge-waiting';
+          const details = room.gameStarted
+            ? '<span>Round ' + (room.round ?? '?') + '</span><span>Phase: ' + phase + '</span>'
+            : '<span>Waiting for players</span>';
+          const players = room.players.map(p =>
+            '<span class="player-tag ' + (p.connected ? '' : 'disconnected') + '">' + p.name + '</span>'
+          ).join('');
+
+          return '<div class="room-card">'
+            + '<div class="room-header">'
+            + '<span class="room-code">' + room.code + '</span>'
+            + '<span class="badge ' + badgeClass + '">' + (room.gameStarted ? 'In Game' : 'Lobby') + '</span>'
+            + '</div>'
+            + '<div class="room-details">' + details + '<span>Bots: ' + room.botCount + '</span></div>'
+            + '<div class="player-list">' + players + '</div>'
+            + '</div>';
+        }).join('');
+      } catch (e) {
+        document.getElementById('status').style.color = '#ef4444';
+      }
+    }
+
+    fetchStats();
+    setInterval(fetchStats, 5000);
+  </script>
+</body>
+</html>`);
+});
 
 // ---------------------------------------------------------------------------
 // Socket events
@@ -524,6 +666,36 @@ io.on('connection', (socket) => {
     if (room && room._scoringResolve) {
       room._scoringResolve();
       room._scoringResolve = null;
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // report_issue
+  // -------------------------------------------------------------------------
+  socket.on('report_issue', async ({ description, screenshot }) => {
+    try {
+      const info = socketToRoom.get(socket.id);
+      if (!info) return socket.emit('error', { message: 'Not in a room' });
+      const room = rooms.get(info.roomCode);
+      if (!room || !room.game) return socket.emit('error', { message: 'No game in progress' });
+
+      const gameState = room.game.getStateFor(info.seat);
+      const result = await createIssue({
+        description,
+        screenshot,
+        gameState,
+        mySeat: info.seat,
+        roomCode: info.roomCode,
+      });
+
+      if (result.ok) {
+        socket.emit('issue_reported', { issueNumber: result.issueNumber, url: result.url });
+      } else {
+        socket.emit('error', { message: result.error || 'Failed to create issue' });
+      }
+    } catch (err) {
+      console.error('report_issue error:', err);
+      socket.emit('error', { message: err.message });
     }
   });
 

@@ -44,6 +44,12 @@ socket.on('error', ({ message }) => {
   error.value = message
 })
 
+const issueToast = ref(null)
+socket.on('issue_reported', ({ issueNumber, url }) => {
+  issueToast.value = { issueNumber, url }
+  setTimeout(() => { issueToast.value = null }, 5000)
+})
+
 function onCreateRoom({ name, botCount }) {
   error.value = null
   socket.emit('create_room', { name, botCount })
@@ -97,5 +103,22 @@ function onLeave() {
       />
     </div>
     <HelpOverlay />
+
+    <!-- Issue reported toast -->
+    <Transition name="toast-fade">
+      <div v-if="issueToast" class="fixed bottom-16 left-1/2 -translate-x-1/2 z-[60] bg-green-700 text-white text-sm rounded-lg px-4 py-2 shadow-lg">
+        Issue #{{ issueToast.issueNumber }} created
+      </div>
+    </Transition>
   </div>
 </template>
+
+<style scoped>
+.toast-fade-enter-active, .toast-fade-leave-active {
+  transition: opacity 0.3s, transform 0.3s;
+}
+.toast-fade-enter-from, .toast-fade-leave-to {
+  opacity: 0;
+  transform: translate(-50%, 10px);
+}
+</style>

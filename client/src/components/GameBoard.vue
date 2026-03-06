@@ -5,6 +5,8 @@ import TrickArea from './TrickArea.vue'
 import BiddingPanel from './BiddingPanel.vue'
 import PlayerHand from './PlayerHand.vue'
 import TramOverlay from './TramOverlay.vue'
+import IssueReportOverlay from './IssueReportOverlay.vue'
+import { toPng } from 'html-to-image'
 import RoundSummary from './RoundSummary.vue'
 import GameOverScreen from './GameOverScreen.vue'
 
@@ -184,6 +186,20 @@ function onPlayAgain() {
 }
 
 const showLeaveConfirm = ref(false)
+const showIssueReport = ref(false)
+const issueScreenshot = ref(null)
+
+async function onIssueClick() {
+  // Capture screenshot BEFORE showing overlay (so the overlay scrim isn't in the screenshot)
+  try {
+    const target = document.querySelector('.game-capture-target') || document.body
+    issueScreenshot.value = await toPng(target, { backgroundColor: '#0f1b2d' })
+  } catch (err) {
+    console.error('Screenshot capture failed:', err)
+    issueScreenshot.value = null
+  }
+  showIssueReport.value = true
+}
 
 // Check if I'm the only human player
 const isOnlyHuman = computed(() => {
@@ -206,10 +222,15 @@ function onLeaveConfirmed() {
 function onLeave() {
   emit('leave')
 }
+
+function onIssueSubmit({ description, screenshot }) {
+  showIssueReport.value = false
+  onGameAction('report_issue', { description, screenshot })
+}
 </script>
 
 <template>
-  <div class="h-full w-full relative overflow-hidden" style="background: radial-gradient(ellipse at 50% 40%, #162d4a 0%, #0f1b2d 60%, #0a1220 100%)">
+  <div class="game-capture-target h-full w-full relative overflow-hidden" style="background: radial-gradient(ellipse at 50% 40%, #162d4a 0%, #0f1b2d 60%, #0a1220 100%)">
     <!-- Dealing animation -->
     <Transition name="deal-fade">
       <div v-if="showDealing" class="absolute inset-0 z-[25] flex items-center justify-center pointer-events-none">
@@ -233,7 +254,7 @@ function onLeave() {
       </span>
     </div>
 
-    <!-- Leave + Give Up buttons (top-right) -->
+    <!-- Leave + Give Up + Issue buttons (top-right) -->
     <div class="absolute top-2 right-2 z-[22] flex flex-col gap-1.5 items-end">
       <button
         @click="onLeaveClick"
@@ -247,6 +268,13 @@ function onLeave() {
         class="bg-red-900/60 hover:bg-red-800/80 text-red-300 text-xs font-medium rounded-lg px-3 py-1.5 transition-colors"
       >
         Give Up
+      </button>
+      <button
+        @click="onIssueClick"
+        class="bg-slate-800/80 hover:bg-amber-700 text-slate-400 hover:text-white text-xs rounded-lg px-2 py-1 transition-colors"
+        title="Report an issue"
+      >
+        &#x26A0; Issue
       </button>
     </div>
 
@@ -504,6 +532,14 @@ function onLeave() {
         </div>
       </div>
     </div>
+
+    <!-- Issue Report Overlay -->
+    <IssueReportOverlay
+      :show="showIssueReport"
+      :screenshot="issueScreenshot"
+      @close="showIssueReport = false"
+      @submit="onIssueSubmit"
+    />
   </div>
 </template>
 
