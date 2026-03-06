@@ -735,7 +735,7 @@ class SurriGame {
     const playingForPartner = isBidderControl && (() => {
       const p = (seat + 2) % 4;
       const nextSeat = this.currentTrick.length === 0
-        ? (this.dealer + 1) % 4
+        ? (this.lastTrick ? this.lastTrick.winner : (this.dealer + 1) % 4)
         : (this.currentTrick[this.currentTrick.length - 1].seat + 1) % 4;
       return nextSeat === p;
     })();
