@@ -4,6 +4,7 @@ import { socket } from './socket.js'
 import LobbyScreen from './components/LobbyScreen.vue'
 import WaitingRoom from './components/WaitingRoom.vue'
 import GameBoard from './components/GameBoard.vue'
+import HelpOverlay from './components/HelpOverlay.vue'
 
 const roomState = ref(null)
 const gameState = ref(null)
@@ -73,7 +74,7 @@ function onLeave() {
 
 <template>
   <div class="min-h-screen bg-[#1a1a1a] flex items-center justify-center">
-    <div class="w-full max-w-[390px] h-screen max-h-[844px] relative overflow-hidden bg-[#0f1b2d] text-slate-200">
+    <div class="w-full max-w-[390px] h-[100dvh] max-h-[844px] relative overflow-hidden bg-[#0f1b2d] text-slate-200">
       <LobbyScreen
         v-if="view === 'lobby'"
         :error="error"
@@ -95,5 +96,6 @@ function onLeave() {
         @leave="onLeave"
       />
     </div>
+    <HelpOverlay />
   </div>
 </template>

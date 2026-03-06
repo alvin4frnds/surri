@@ -53,6 +53,11 @@ function onCodeKeydown(e) {
 
 <template>
   <div class="min-h-screen flex flex-col items-center justify-center px-6 py-12 relative">
+    <!-- Alpha banner -->
+    <div class="absolute top-0 left-0 right-0 bg-amber-700/90 text-amber-100 text-xs text-center py-2 px-4">
+      Alpha stage — bugs and hangs are expected. Please share feedback to help us improve!
+    </div>
+
     <!-- Title -->
     <div class="mb-10 text-center">
       <div class="text-6xl font-bold tracking-[0.3em] text-slate-100 mb-2">SURRI</div>
