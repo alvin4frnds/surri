@@ -25,7 +25,18 @@ function buildDeck() {
   return deck; // sorted: 2S..AS, 2H..AH, 2D..AD, 2C..AC
 }
 
+function shuffle(deck) {
+  // Fisher-Yates for proper randomization
+  const d = [...deck];
+  for (let i = d.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [d[i], d[j]] = [d[j], d[i]];
+  }
+  return d;
+}
+
 function cutShuffle(deck, times) {
+  deck = shuffle(deck);
   for (let i = 0; i < times; i++) {
     const cut = Math.floor(Math.random() * (deck.length - 1)) + 1;
     deck = [...deck.slice(cut), ...deck.slice(0, cut)];
@@ -434,8 +445,9 @@ class SurriGame {
     this.currentTrick.push({ seat: playingSeat, card });
 
     if (this.currentTrick.length === 4) {
-      // Resolve trick
-      return this._resolveTrick();
+      // Don't resolve yet — let server broadcast all 4 cards first, then call resolveTrick()
+      this.activeSeat = null; // no one's turn during trick resolution
+      return { ok: true, trickComplete: true };
     } else {
       // Next player
       this._advancePlaySeat();
@@ -458,6 +470,13 @@ class SurriGame {
     } else {
       this.activeSeat = next;
     }
+  }
+
+  resolveTrick() {
+    if (this.currentTrick.length !== 4) {
+      return { ok: false, error: 'Trick not complete' };
+    }
+    return this._resolveTrick();
   }
 
   _resolveTrick() {

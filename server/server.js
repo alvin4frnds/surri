@@ -121,6 +121,14 @@ async function runBotTurns(roomCode) {
 
       await bot.decideAction();
       broadcastGameState(roomCode);
+
+      // If trick just completed (4 cards), pause so clients see all cards, then resolve
+      if (game.currentTrick.length === 4 && game.activeSeat === null) {
+        const trickDelay = process.env.FAST_TEST ? 50 : 1200;
+        await new Promise(r => setTimeout(r, trickDelay));
+        game.resolveTrick();
+        broadcastGameState(roomCode);
+      }
     }
   } finally {
     room._botRunning = false;
@@ -414,6 +422,15 @@ io.on('connection', (socket) => {
       if (!result.ok) return socket.emit('error', { message: result.error });
 
       broadcastGameState(info.roomCode);
+
+      // If trick just completed, pause so clients see all 4 cards, then resolve
+      if (result.trickComplete) {
+        const trickDelay = process.env.FAST_TEST ? 50 : 1200;
+        await new Promise(r => setTimeout(r, trickDelay));
+        room.game.resolveTrick();
+        broadcastGameState(info.roomCode);
+      }
+
       await runBotTurns(info.roomCode);
     } catch (err) {
       console.error('play_card error:', err);
