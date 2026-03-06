@@ -71,6 +71,15 @@ const isGameOver = computed(() => lastRoundResult.value?.gameOver === true)
 // Partner seat
 const partnerSeat = computed(() => (props.mySeat + 2) % 4)
 
+// The revealed partner seat (bidder's partner, shown on north)
+const revealedPartnerSeat = computed(() => biddingSeat.value != null ? (biddingSeat.value + 2) % 4 : null)
+
+// Show partner hand on north side during partner_reveal or playing phase
+const showPartnerOnNorth = computed(() => {
+  if (!partnerHand.value || partnerHand.value.length === 0) return false
+  return phase.value === 'partner_reveal' || isPlaying.value
+})
+
 // Is bidder with bid >= 10 controlling partner
 const isBidderControlling = computed(() =>
   isPlaying.value && biddingSeat.value === props.mySeat && (bid.value ?? 0) >= 10
@@ -181,7 +190,7 @@ function onLeave() {
     </div>
 
     <!-- North player -->
-    <div class="absolute top-3 left-1/2 -translate-x-1/2 z-10">
+    <div class="absolute top-2 left-1/2 -translate-x-1/2 z-10">
       <PlayerArea
         :seat="absSeat('north')"
         :seatData="seats[absSeat('north')]"
@@ -190,7 +199,7 @@ function onLeave() {
         :isDealer="dealer === absSeat('north')"
         :dealerScore="dealerScore"
         :isActive="activeSeat === absSeat('north')"
-        :cardCount="handSizes[absSeat('north')] ?? 0"
+        :cardCount="showPartnerOnNorth ? 0 : (handSizes[absSeat('north')] ?? 0)"
         position="north"
         :isSouth="false"
         :supportSignal="seatSupportSignal(absSeat('north'))"
@@ -198,6 +207,22 @@ function onLeave() {
         :teamTricksWon="teamTricksWon(absSeat('north'))"
         :teamTricksNeeded="teamTarget(absSeat('north'))"
         :isMyTeam="isMyTeam(absSeat('north'))"
+      />
+    </div>
+
+    <!-- Partner hand on north side (bid >= 10, during reveal or playing) -->
+    <div
+      v-if="showPartnerOnNorth && partnerHand && partnerHand.length > 0"
+      class="absolute top-[90px] left-1/2 -translate-x-1/2 z-[12] w-full max-w-[360px]"
+    >
+      <PlayerHand
+        :cards="partnerHand"
+        :playableCards="isPartnersTurn ? playableCards : []"
+        :myTurn="isPartnersTurn"
+        :readOnly="!isPartnersTurn"
+        :label="(seats[revealedPartnerSeat]?.name || 'Partner') + '\'s Hand'"
+        :compact="true"
+        @play-card="onPartnerCard"
       />
     </div>
 
@@ -266,7 +291,7 @@ function onLeave() {
     </div>
 
     <!-- South (me) info -->
-    <div class="absolute left-1/2 -translate-x-1/2 z-10" :class="partnerHand && partnerHand.length > 0 && isPlaying ? 'bottom-[310px]' : 'bottom-[170px]'">
+    <div class="absolute left-1/2 -translate-x-1/2 z-10 bottom-[130px]">
       <PlayerArea
         :seat="mySeat"
         :seatData="seats[mySeat]"
@@ -287,7 +312,7 @@ function onLeave() {
     </div>
 
     <!-- TRAM button + turn indicator -->
-    <div v-if="isPlaying" class="absolute bottom-[170px] left-3 z-20">
+    <div v-if="isPlaying" class="absolute bottom-[130px] left-3 z-20">
       <button
         @click="showTram = true"
         class="bg-slate-700/80 hover:bg-slate-600 text-white text-xs font-medium rounded-lg px-3 py-1.5 transition-colors"
@@ -295,31 +320,13 @@ function onLeave() {
         TRAM
       </button>
     </div>
-    <div v-if="isPlaying && (isPartnersTurn || (myTurn && activeSeat === mySeat))" class="absolute bottom-[170px] right-3 z-20">
+    <div v-if="isPlaying && (isPartnersTurn || (myTurn && activeSeat === mySeat))" class="absolute bottom-[130px] right-3 z-20">
       <span v-if="isPartnersTurn" class="text-yellow-400 text-xs font-medium bg-slate-900/80 rounded px-2 py-1">
         Play partner's card
       </span>
       <span v-else class="text-yellow-400 text-xs font-medium bg-slate-900/80 rounded px-2 py-1">
         Your turn
       </span>
-    </div>
-
-    <!-- Partner hand (bid >= 10, playing phase) -->
-    <div
-      v-if="isPlaying && partnerHand && partnerHand.length > 0"
-      class="absolute bottom-[155px] left-0 right-0 z-[15]"
-    >
-      <div class="px-2">
-        <PlayerHand
-          :cards="partnerHand"
-          :playableCards="isPartnersTurn ? playableCards : []"
-          :myTurn="isPartnersTurn"
-          :readOnly="!isPartnersTurn"
-          :label="(seats[partnerSeat]?.name || 'Partner') + '\'s Hand'"
-          :compact="true"
-          @play-card="onPartnerCard"
-        />
-      </div>
     </div>
 
     <!-- My hand -->
@@ -336,12 +343,14 @@ function onLeave() {
       />
     </div>
 
-    <!-- Bidding popup overlay (leaves hand visible at bottom) -->
-    <div v-if="isBidding" class="absolute top-0 left-0 right-0 bottom-[160px] bg-black/60 backdrop-blur-sm z-20 flex items-center justify-center p-4">
+    <!-- Bidding scrim (darkens table area above hand) -->
+    <div v-if="isBidding" class="absolute top-0 left-0 right-0 bottom-[130px] bg-black/40 z-[18] pointer-events-none" />
+
+    <!-- Bidding panel (floating, centered in upper area) -->
+    <div v-if="isBidding" class="absolute top-[50%] left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-full max-w-[320px] px-3" :class="showPartnerOnNorth ? 'top-[55%]' : 'top-[45%]'">
       <BiddingPanel
         :gameState="gs"
         :mySeat="mySeat"
-        class="w-full max-w-[340px]"
         @ask-support="onBiddingAction('ask_support', {})"
         @give-support="(p) => onBiddingAction('give_support', p)"
         @place-bid="(p) => onBiddingAction('place_bid', p)"

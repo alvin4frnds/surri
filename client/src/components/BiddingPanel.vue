@@ -156,46 +156,41 @@ watch(phase, (newPhase) => {
       </span>
     </div>
 
-    <!-- PARTNER REVEAL PHASE -->
-    <div v-if="phase === 'partner_reveal'" class="p-4 space-y-4">
-      <!-- Partner hand display -->
-      <div v-if="partnerHand">
-        <PlayerHand :cards="partnerHand" :playableCards="[]" :myTurn="false" :readOnly="true" :label="revealedPartnerName() + '\'s Hand'" />
-      </div>
-
+    <!-- PARTNER REVEAL PHASE (slim controls only — cards shown on north side) -->
+    <div v-if="phase === 'partner_reveal'" class="p-3 space-y-3">
       <!-- Bidder controls -->
       <div v-if="biddingSeat === mySeat">
-        <div class="text-center text-slate-300 text-sm mb-3">
+        <div class="text-center text-slate-300 text-sm mb-2">
           You bid <span class="font-bold text-white">{{ currentBid }}</span> — increase bid?
         </div>
 
         <!-- Bid picker -->
-        <div class="flex items-center justify-center gap-4 mb-4">
+        <div class="flex items-center justify-center gap-4 mb-3">
           <button
             @click="decreaseRevealBid"
             :disabled="revealBidValue() <= currentBid"
-            class="w-10 h-10 rounded-full bg-slate-700 hover:bg-slate-600 disabled:opacity-30 text-white font-bold text-xl flex items-center justify-center"
+            class="w-9 h-9 rounded-full bg-slate-700 hover:bg-slate-600 disabled:opacity-30 text-white font-bold text-lg flex items-center justify-center"
           >&#x2039;</button>
 
-          <span class="text-2xl font-bold text-white w-12 text-center">{{ revealBidValue() }}</span>
+          <span class="text-xl font-bold text-white w-10 text-center">{{ revealBidValue() }}</span>
 
           <button
             @click="increaseRevealBid"
             :disabled="revealBidValue() >= 13"
-            class="w-10 h-10 rounded-full bg-slate-700 hover:bg-slate-600 disabled:opacity-30 text-white font-bold text-xl flex items-center justify-center"
+            class="w-9 h-9 rounded-full bg-slate-700 hover:bg-slate-600 disabled:opacity-30 text-white font-bold text-lg flex items-center justify-center"
           >&#x203A;</button>
         </div>
 
         <button
           @click="startPlay"
-          class="w-full bg-green-600 hover:bg-green-500 text-white font-bold rounded-lg py-3 transition-colors"
+          class="w-full bg-green-600 hover:bg-green-500 text-white font-bold rounded-lg py-2.5 transition-colors text-sm"
         >
           START &#x25B6;
         </button>
       </div>
 
       <!-- Non-bidder waiting -->
-      <div v-else class="text-center text-slate-400 text-sm py-2">
+      <div v-else class="text-center text-slate-400 text-sm py-1">
         Waiting for {{ bidderName() }} to start...
       </div>
     </div>

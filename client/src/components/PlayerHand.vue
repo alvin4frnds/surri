@@ -41,15 +41,15 @@ const hoveredIndex = ref(-1)
 
 function fanStyle(index, total) {
   if (total <= 0) return {}
-  const maxAngle = Math.min(props.compact ? 35 : 50, total * (props.compact ? 2.8 : 4))
+  const maxAngle = Math.min(props.compact ? 25 : 35, total * (props.compact ? 2 : 2.8))
   const angle = total <= 1 ? 0 : -maxAngle / 2 + (index / (total - 1)) * maxAngle
-  const radius = props.compact ? 600 : 700
+  const radius = props.compact ? 500 : 550
   const radians = (angle * Math.PI) / 180
   const x = Math.sin(radians) * radius
   const y = -Math.cos(radians) * radius + radius
 
   const isHovered = hoveredIndex.value === index
-  const liftY = isHovered ? -20 : 0
+  const liftY = isHovered ? -16 : 0
 
   return {
     transform: `translateX(calc(-50% + ${x.toFixed(1)}px)) translateY(${(y + liftY).toFixed(1)}px) rotate(${angle.toFixed(1)}deg)`,
@@ -57,8 +57,8 @@ function fanStyle(index, total) {
   }
 }
 
-const cardSize = () => props.compact ? 'md' : 'lg'
-const containerHeight = () => props.compact ? '100px' : '155px'
+const cardSize = () => props.compact ? 'sm' : 'md'
+const containerHeight = () => props.compact ? '70px' : '120px'
 </script>
 
 <template>

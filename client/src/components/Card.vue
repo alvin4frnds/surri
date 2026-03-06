@@ -59,7 +59,7 @@ function handleClick() {
         ? 'opacity-100 cursor-pointer card-playable'
         : '',
       !faceDown && !playable
-        ? 'opacity-60 cursor-not-allowed'
+        ? 'opacity-90 cursor-not-allowed'
         : '',
       selected ? 'ring-2 ring-yellow-400 -translate-y-2' : '',
     ]"
