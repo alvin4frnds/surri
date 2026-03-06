@@ -187,6 +187,7 @@ function onPlayAgain() {
 
 const showLeaveConfirm = ref(false)
 const showIssueReport = ref(false)
+const issueSubmitted = ref(false)
 const issueScreenshot = ref(null)
 
 async function onIssueClick() {
@@ -225,6 +226,7 @@ function onLeave() {
 
 function onIssueSubmit({ description, screenshot }) {
   showIssueReport.value = false
+  issueSubmitted.value = true
   onGameAction('report_issue', { description, screenshot })
 }
 </script>
@@ -260,7 +262,7 @@ function onIssueSubmit({ description, screenshot }) {
         @click="onLeaveClick"
         class="bg-slate-800/80 hover:bg-red-700 text-slate-400 hover:text-white text-xs rounded-lg px-2 py-1 transition-colors"
       >
-        Leave
+        Quit game
       </button>
       <button
         v-if="isPlaying"
@@ -270,6 +272,7 @@ function onIssueSubmit({ description, screenshot }) {
         Give Up
       </button>
       <button
+        v-if="!issueSubmitted"
         @click="onIssueClick"
         class="bg-slate-800/80 hover:bg-amber-700 text-slate-400 hover:text-white text-xs rounded-lg px-2 py-1 transition-colors"
         title="Report an issue"
@@ -527,7 +530,7 @@ function onIssueSubmit({ description, screenshot }) {
             @click="onLeaveConfirmed"
             class="flex-1 bg-red-600 hover:bg-red-500 text-white text-sm font-medium rounded-lg py-2 transition-colors"
           >
-            Leave
+            Quit game
           </button>
         </div>
       </div>
