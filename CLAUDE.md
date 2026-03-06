@@ -44,6 +44,42 @@ cd client && npm run build   # Outputs to client/dist/
 cd server && npm start       # Run server in production
 ```
 
+## Deployment
+
+**Live URL**: https://surri.xuresolutions.in
+
+The app is deployed on an Ubuntu server at `/var/www/html/surri2`.
+
+### Stack
+- **Nginx** — serves `client/dist/` static files, proxies `/socket.io/` to Node
+- **PM2** — runs `server/server.js` as process `surri2` on port 3000
+- **GitHub Actions** — auto-deploys on push to `master` via `.github/workflows/deploy.yml`
+
+### Auto-deploy (CI/CD)
+Every push to `master` triggers a GitHub Actions workflow that SSHs into the server and runs:
+```bash
+cd /var/www/html/surri2
+git pull origin master
+npm run install:all
+cd client && npm run build && cd ..
+pm2 restart surri2
+```
+
+**GitHub Secrets required**: `SERVER_IP`, `SSH_PRIVATE_KEY` (ed25519 deploy key at `~/.ssh/surri_deploy`)
+
+### Manual deploy
+```bash
+ssh root@<server-ip>
+cd /var/www/html/surri2
+git pull origin master
+npm run install:all
+cd client && npm run build && cd ..
+pm2 restart surri2
+```
+
+### Nginx config
+Located at `/etc/nginx/sites-available/surri2`. Serves Vue SPA with `try_files` fallback and proxies `/socket.io/` with WebSocket upgrade headers.
+
 ## Architecture
 
 ### Structure
