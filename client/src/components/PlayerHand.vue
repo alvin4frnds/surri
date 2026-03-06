@@ -43,17 +43,14 @@ function fanStyle(index, total) {
   if (total <= 0) return {}
 
   if (props.compact) {
-    // Compact: small arc for partner hand
-    const maxAngle = Math.min(20, total * 1.6)
-    const angle = total <= 1 ? 0 : -maxAngle / 2 + (index / (total - 1)) * maxAngle
-    const radius = 500
-    const radians = (angle * Math.PI) / 180
-    const x = Math.sin(radians) * radius
-    const y = -Math.cos(radians) * radius + radius
+    // Compact: tight overlap, same as main hand but smaller cards
+    const spacing = 14
+    const totalWidth = (total - 1) * spacing
+    const x = -totalWidth / 2 + index * spacing
     const isHovered = hoveredIndex.value === index
-    const liftY = isHovered ? -12 : 0
+    const liftY = isHovered ? -18 : 0
     return {
-      transform: `translateX(calc(-50% + ${x.toFixed(1)}px)) translateY(${(y + liftY).toFixed(1)}px) rotate(${angle.toFixed(1)}deg)`,
+      transform: `translateX(calc(-50% + ${x.toFixed(1)}px)) translateY(${liftY}px)`,
       zIndex: isHovered ? 100 : index,
     }
   }
@@ -72,8 +69,8 @@ function fanStyle(index, total) {
   }
 }
 
-const cardSize = () => props.compact ? 'sm' : 'lg'
-const containerHeight = () => props.compact ? '70px' : '100px'
+const cardSize = () => props.compact ? 'md' : 'lg'
+const containerHeight = () => props.compact ? '85px' : '100px'
 </script>
 
 <template>
