@@ -41,9 +41,9 @@ const hoveredIndex = ref(-1)
 
 function fanStyle(index, total) {
   if (total <= 0) return {}
-  const maxAngle = Math.min(props.compact ? 25 : 35, total * (props.compact ? 2 : 2.8))
+  const maxAngle = Math.min(props.compact ? 20 : 28, total * (props.compact ? 1.6 : 2.2))
   const angle = total <= 1 ? 0 : -maxAngle / 2 + (index / (total - 1)) * maxAngle
-  const radius = props.compact ? 500 : 550
+  const radius = props.compact ? 500 : 500
   const radians = (angle * Math.PI) / 180
   const x = Math.sin(radians) * radius
   const y = -Math.cos(radians) * radius + radius
@@ -62,7 +62,7 @@ const containerHeight = () => props.compact ? '70px' : '120px'
 </script>
 
 <template>
-  <div class="px-6 pb-3 pt-1">
+  <div class="px-8 pb-3 pt-1">
     <div v-if="label" class="text-xs text-slate-400 uppercase tracking-wider mb-1 px-1 text-center">{{ label }}</div>
     <div class="relative w-full" :style="`height: ${containerHeight()};`">
       <div
