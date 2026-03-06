@@ -190,6 +190,8 @@ class SurriGame {
     this.lastRoundResult = null;
 
     this._tricksPlayed = 0; // total tricks completed this round
+    this.playedCards = []; // all cards played this round (for AI tracking)
+    this.voidSuits = { 0: new Set(), 1: new Set(), 2: new Set(), 3: new Set() }; // suits each seat has shown void in
   }
 
   // -------------------------------------------------------------------------
@@ -215,7 +217,10 @@ class SurriGame {
     this.currentTrick = [];
     this.lastTrick = null;
     this.lastRoundResult = null;
+    this.tramResult = null;
     this._tricksPlayed = 0;
+    this.playedCards = [];
+    this.voidSuits = { 0: new Set(), 1: new Set(), 2: new Set(), 3: new Set() };
 
     // Deal
     this._deal();
@@ -386,7 +391,8 @@ class SurriGame {
     }
 
     this.phase = 'playing';
-    this.activeSeat = (this.dealer + 1) % 4;
+    // Bid >= 10: bidder leads; otherwise left of dealer
+    this.activeSeat = this.bid >= 10 ? this.biddingSeat : (this.dealer + 1) % 4;
 
     return { ok: true };
   }
@@ -440,6 +446,14 @@ class SurriGame {
       return { ok: false, error: 'Must follow suit' };
     }
 
+    // Detect void: if trick has a led card and player is not following suit
+    if (this.currentTrick.length > 0) {
+      const ledSuit = cardSuit(this.currentTrick[0].card);
+      if (cardSuit(card) !== ledSuit) {
+        this.voidSuits[playingSeat].add(ledSuit);
+      }
+    }
+
     // Play the card
     this.hands[playingSeat] = this.hands[playingSeat].filter(c => c !== card);
     this.currentTrick.push({ seat: playingSeat, card });
@@ -483,6 +497,10 @@ class SurriGame {
     const winner = trickWinner(this.currentTrick, this.trump);
     this.tricks[winner]++;
     this._tricksPlayed++;
+    // Track all played cards for AI reasoning
+    for (const play of this.currentTrick) {
+      this.playedCards.push(play.card);
+    }
     this.lastTrick = { winner, cards: [...this.currentTrick] };
     this.currentTrick = [];
 
@@ -530,52 +548,39 @@ class SurriGame {
     }
 
     const callerTeam = seat % 2;
-
-    // If bid >= 10 and bidder calls tram, they can include partner cards
-    // Validate the claim
     const result = validateTram(cards, seat, this.hands, this.trump, this.bid, this.tricks);
 
     if (result.valid) {
-      // Award the claimed tricks to the claimer's team
       const tricksNeeded = this._tricksNeededForClaimer(seat);
-      // Give tricks for each card claimed
       for (const card of cards) {
         this.tricks[seat]++;
       }
-      return this._endRound();
     } else {
       // Invalid TRAM — all remaining tricks go to opponents
-      const opponentTeam = 1 - callerTeam;
-      // Count remaining cards (remaining tricks)
-      const remaining = Math.max(...Object.values(this.hands).map(h => h.length));
-      const remainingTricks = Math.floor(Math.min(...Object.values(this.hands).map(h => h.length)) > 0
-        ? remaining
-        : remaining);
-
-      // Give all remaining tricks to opponents
-      const oppSeats = [0, 1, 2, 3].filter(s => s % 2 === opponentTeam);
-      // Distribute evenly or to first opponent seat
-      const handLengths = Object.values(this.hands).map(h => h.length);
-      const maxRemaining = Math.max(...handLengths);
-      // Award remaining tricks needed to end the round
       const bidTeamTricks = this._getBidTeamTricks();
       const defTeamTricks = this._getDefTeamTricks();
-      const bidTarget = this.bid;
       const defTarget = 14 - this.bid;
 
       if (callerTeam === this.biddingTeam) {
-        // Bidding team called invalid TRAM — give remaining tricks to defending team
-        const defNeeded = defTarget - defTeamTricks;
-        this.tricks[oppSeats[0]] += defNeeded;
+        const oppSeats = [0, 1, 2, 3].filter(s => s % 2 !== this.biddingTeam);
+        this.tricks[oppSeats[0]] += defTarget - defTeamTricks;
       } else {
-        // Defending team called invalid TRAM — give remaining tricks to bidding team
-        const bidNeeded = bidTarget - bidTeamTricks;
         const bidSeats = [0, 1, 2, 3].filter(s => s % 2 === this.biddingTeam);
-        this.tricks[bidSeats[0]] += bidNeeded;
+        this.tricks[bidSeats[0]] += this.bid - bidTeamTricks;
       }
-
-      return this._endRound();
     }
+
+    // Store TRAM result so clients can display it before scoring
+    this.tramResult = {
+      callerSeat: seat,
+      callerName: this.seats[seat]?.name ?? `Player ${seat}`,
+      valid: result.valid,
+      cards,
+      failReason: result.reason || null,
+    };
+
+    // Transition to scoring (which shows TRAM result + round summary)
+    return this._endRound();
   }
 
   _tricksNeededForClaimer(seat) {
@@ -734,8 +739,9 @@ class SurriGame {
     // True when it's the bidder's turn to pick a card from their partner's hand
     const playingForPartner = isBidderControl && (() => {
       const p = (seat + 2) % 4;
+      const firstLeader = this.bid >= 10 ? this.biddingSeat : (this.dealer + 1) % 4;
       const nextSeat = this.currentTrick.length === 0
-        ? (this.lastTrick ? this.lastTrick.winner : (this.dealer + 1) % 4)
+        ? (this.lastTrick ? this.lastTrick.winner : firstLeader)
         : (this.currentTrick[this.currentTrick.length - 1].seat + 1) % 4;
       return nextSeat === p;
     })();
@@ -762,6 +768,7 @@ class SurriGame {
       bidHistory: this.bidHistory,
       supportSignals: { ...this.supportSignals },
       supportAsked: { ...this.supportAsked },
+      pendingSupportRequest: this.pendingSupportRequest ? { ...this.pendingSupportRequest } : null,
 
       activeSeat: this.activeSeat,
       tricks: { ...this.tricks },
@@ -769,7 +776,9 @@ class SurriGame {
       lastTrick: this.lastTrick,
 
       myHand: [...(this.hands[seat] || [])],
-      partnerHand: (this.bid >= 10) ? [...(this.hands[partner] || [])] : null,
+      partnerHand: (this.bid >= 10 && this.biddingSeat != null)
+        ? [...(this.hands[(this.biddingSeat + 2) % 4] || [])]
+        : null,
       handSizes: {
         0: this.hands[0].length,
         1: this.hands[1].length,
@@ -782,6 +791,7 @@ class SurriGame {
       playingForPartner,
 
       lastRoundResult: this.lastRoundResult,
+      tramResult: this.tramResult,
     };
   }
 
@@ -791,8 +801,9 @@ class SurriGame {
     // The bidder plays cards for whichever hand is "next" in the trick
     // Figure out whose turn it is in the trick sequence
     const playedSeats = this.currentTrick.map(p => p.seat);
+    const firstLeader = this.bid >= 10 ? this.biddingSeat : (this.dealer + 1) % 4;
     let nextSeat = this.currentTrick.length === 0
-      ? (this.lastTrick ? this.lastTrick.winner : (this.dealer + 1) % 4)
+      ? (this.lastTrick ? this.lastTrick.winner : firstLeader)
       : (this.currentTrick[this.currentTrick.length - 1].seat + 1) % 4;
 
     if (nextSeat === partner) {

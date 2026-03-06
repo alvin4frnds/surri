@@ -86,7 +86,8 @@ async function runBotTurns(roomCode) {
       if (game.isGameOver() !== null) break;
 
       if (game.phase === 'scoring') {
-        const scoringDelay = process.env.FAST_TEST ? 50 : 2000;
+        const baseDelay = game.tramResult ? 8000 : 5000;
+        const scoringDelay = process.env.FAST_TEST ? 50 : baseDelay;
         await new Promise(r => setTimeout(r, scoringDelay));
         game.round++;
         game.startRound();

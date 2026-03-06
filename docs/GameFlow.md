@@ -100,7 +100,7 @@ If the bid is 8 or 9 (forced bid), partner's hand is NOT revealed and the bidder
 
 ### Standard Trick-Taking
 
-1. **Player left of dealer** leads the first trick.
+1. If bid ≥ 10, the **bidder** leads the first trick. Otherwise, **player left of dealer** leads.
 2. Each player in clockwise order plays one card:
    - Must follow suit if holding a card of the led suit.
    - If void in led suit, may play any card (including trump).

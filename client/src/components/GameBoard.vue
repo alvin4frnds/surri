@@ -61,6 +61,7 @@ const biddingSeat = computed(() => gs.value?.biddingSeat)
 const supportSignals = computed(() => gs.value?.supportSignals ?? {})
 const bidHistory = computed(() => gs.value?.bidHistory ?? [])
 const lastRoundResult = computed(() => gs.value?.lastRoundResult)
+const tramResult = computed(() => gs.value?.tramResult)
 
 const isBidding = computed(() =>
   phase.value === 'bidding' || phase.value === 'bidding_forced' || phase.value === 'partner_reveal'
@@ -326,6 +327,7 @@ const POSITIONS = ['north', 'west', 'east']
       v-if="isScoring && showRoundSummary && lastRoundResult && !isGameOver"
       :lastRoundResult="lastRoundResult"
       :seats="seats"
+      :tramResult="tramResult"
       @continue="onRoundContinue"
     />
 

@@ -4,6 +4,7 @@ import { onMounted, onUnmounted, ref } from 'vue'
 const props = defineProps({
   lastRoundResult: { type: Object, required: true },
   seats: { type: Array, default: () => [] },
+  tramResult: { type: Object, default: null },
 })
 
 const emit = defineEmits(['continue'])
@@ -13,7 +14,8 @@ const SUITS = { S: '♠', H: '♥', D: '♦', C: '♣' }
 let timer = null
 
 onMounted(() => {
-  timer = setTimeout(() => emit('continue'), 5000)
+  const delay = props.tramResult ? 8000 : 5000
+  timer = setTimeout(() => emit('continue'), delay)
 })
 
 onUnmounted(() => {
@@ -80,6 +82,18 @@ function changeReason() {
   if (r === 'bid13') return 'Bid of 13'
   return ''
 }
+
+function tramCallerName() {
+  if (!props.tramResult) return ''
+  return seatName(props.tramResult.callerSeat)
+}
+
+function formatCard(card) {
+  if (!card) return ''
+  const suit = card.slice(-1)
+  const rank = card.slice(0, -1)
+  return `${rank}${SUITS[suit] || suit}`
+}
 </script>
 
 <template>
@@ -98,6 +112,22 @@ function changeReason() {
       </div>
 
       <div class="p-4 space-y-4">
+        <!-- TRAM result (if any) -->
+        <div v-if="tramResult" class="bg-slate-700 rounded-xl p-3 space-y-2">
+          <div class="text-center font-bold text-lg" :class="tramResult.valid ? 'text-green-400' : 'text-red-400'">
+            {{ tramResult.valid ? '✓ TRAM SUCCESSFUL' : '✗ TRAM FAILED' }}
+          </div>
+          <div class="text-center text-sm text-slate-300">
+            {{ tramCallerName() }} called TRAM
+          </div>
+          <div v-if="tramResult.cards && tramResult.cards.length > 0" class="text-center text-sm text-slate-200">
+            Cards: {{ tramResult.cards.map(formatCard).join(', ') }}
+          </div>
+          <div v-if="!tramResult.valid && tramResult.failReason" class="text-center text-xs text-red-300">
+            {{ tramResult.failReason }}
+          </div>
+        </div>
+
         <!-- Bid info -->
         <div class="text-center">
           <span class="text-slate-300">{{ seatName(lastRoundResult.biddingSeat) }} bid </span>

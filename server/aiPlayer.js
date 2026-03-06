@@ -92,6 +92,64 @@ function lowestWinningCard(cards, winnerCard) {
   return lowestCard(winners);
 }
 
+/**
+ * Check if the player holds the highest remaining card in a suit.
+ * Returns the card if so, null otherwise.
+ */
+function highestRemainingInSuit(suit, hand, playedCards) {
+  const handInSuit = hand.filter(c => cardSuit(c) === suit);
+  if (handInSuit.length === 0) return null;
+
+  const myHighest = highestCard(handInSuit);
+  const myHighestRank = cardRank(myHighest);
+
+  // Check if any unplayed card in this suit (not in our hand) is higher
+  for (const rank of RANKS) {
+    const card = rank + suit;
+    if (cardRank(card) > myHighestRank && !playedCards.includes(card) && !hand.includes(card)) {
+      return null; // someone else could have a higher card
+    }
+  }
+  return myHighest;
+}
+
+/**
+ * Get all guaranteed winners from hand — cards that are the highest remaining
+ * in their suit and the suit hasn't been trumped by opponents.
+ */
+function getGuaranteedWinners(hand, trump, playedCards, opponentVoidSuits) {
+  const winners = [];
+  const seenSuits = new Set();
+  for (const card of hand) {
+    const suit = cardSuit(card);
+    if (seenSuits.has(suit)) continue;
+    seenSuits.add(suit);
+
+    // Skip non-trump suits where an opponent is void (they could trump it)
+    if (suit !== trump && opponentVoidSuits.some(vs => vs.has(suit))) continue;
+
+    const best = highestRemainingInSuit(suit, hand, playedCards);
+    if (best) winners.push(best);
+  }
+  return winners;
+}
+
+/**
+ * Check if partner's card is the highest remaining in its suit.
+ */
+function isPartnerCardHighestRemaining(partnerCard, hand, playedCards) {
+  const suit = cardSuit(partnerCard);
+  const partnerRank = cardRank(partnerCard);
+
+  for (const rank of RANKS) {
+    const card = rank + suit;
+    if (cardRank(card) > partnerRank && !playedCards.includes(card) && !hand.includes(card)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function currentTrickWinner(currentTrick, trump) {
   if (currentTrick.length === 0) return null;
   const { trickWinner } = require('./gameLogic');
@@ -155,7 +213,7 @@ class AIPlayer {
 
     let signal;
     if (estimate >= 4) signal = 'Major';
-    else if (estimate >= 2) signal = 'Minor';
+    else if (estimate >= 1) signal = 'Minor';
     else signal = 'Pass';
 
     game.giveSupport(seat, signal);
@@ -187,6 +245,9 @@ class AIPlayer {
     if (estimate >= 10) {
       shouldBid = true;
       bidAmount = Math.min(Math.round(estimate), 13);
+    } else if (estimate >= 9 && partnerSignal === 'Minor') {
+      shouldBid = true;
+      bidAmount = 10;
     } else if (estimate >= 8 && partnerSignal === 'Major') {
       shouldBid = true;
       bidAmount = 10;
@@ -364,6 +425,10 @@ class AIPlayer {
     const trump = game.trump;
     const callerTeam = seat % 2;
     const isBidding = callerTeam === game.biddingTeam;
+    const partnerSeat = (seat + 2) % 4;
+    const opponents = [0, 1, 2, 3].filter(s => s % 2 !== callerTeam);
+    const opponentVoidSuits = opponents.map(s => game.voidSuits[s]);
+    const partnerVoidSuits = game.voidSuits[partnerSeat];
 
     const bidTeamTricks = game.tricks[game.biddingTeam === 0 ? 0 : 1] +
       game.tricks[game.biddingTeam === 0 ? 2 : 3];
@@ -375,11 +440,22 @@ class AIPlayer {
       : defTeamTricks < (14 - game.bid);
 
     if (belowTarget) {
-      // Lead aces in non-trump suits
-      const aces = playable.filter(c => c.startsWith('A') && cardSuit(c) !== trump);
-      if (aces.length > 0) return aces[0];
+      // 1. Lead guaranteed winners (highest remaining in suit, safe from trumping)
+      const winners = getGuaranteedWinners(playable, trump, game.playedCards, opponentVoidSuits);
+      if (winners.length > 0) return winners[0];
 
-      // Lead short suits to create voids
+      // 2. Lead low cards in suits partner has trumped (but opponents haven't)
+      const partnerTrumpedSuits = [...partnerVoidSuits].filter(
+        suit => suit !== trump && !opponentVoidSuits.some(vs => vs.has(suit))
+      );
+      if (partnerTrumpedSuits.length > 0) {
+        const feedCards = playable.filter(c =>
+          partnerTrumpedSuits.includes(cardSuit(c)) && cardSuit(c) !== trump
+        );
+        if (feedCards.length > 0) return lowestCard(feedCards);
+      }
+
+      // 3. Lead short suits to create voids
       const suitCounts = {};
       for (const suit of SUITS) {
         suitCounts[suit] = playable.filter(c => cardSuit(c) === suit).length;
@@ -390,21 +466,29 @@ class AIPlayer {
         if (shortCards.length > 0) return shortCards[0];
       }
 
-      // Lead high trump
+      // 4. Lead high trump
       const trumpCards = playable.filter(c => cardSuit(c) === trump);
       if (trumpCards.some(c => c.startsWith('A') || c.startsWith('K'))) {
         return highestCard(trumpCards);
       }
     }
 
-    // Defending — lead suits where bidding team is weak
+    // Defending — lead trump to deplete bidder, but avoid suits opponents are void in
     if (!isBidding) {
-      // Lead trump to deplete bidder
       const trumpCards = playable.filter(c => cardSuit(c) === trump);
       if (trumpCards.length > 0) return lowestCard(trumpCards);
+
+      // Lead suits where opponents are void (they can't follow) — partner might win
+      const feedPartner = playable.filter(c => {
+        const s = cardSuit(c);
+        return s !== trump && partnerVoidSuits.has(s) && !opponentVoidSuits.some(vs => vs.has(s));
+      });
+      if (feedPartner.length > 0) return lowestCard(feedPartner);
     }
 
-    return lowestCard(playable);
+    // Default: lead lowest non-trump, or lowest trump if spade-tight
+    const nonTrump = playable.filter(c => cardSuit(c) !== trump);
+    return nonTrump.length > 0 ? lowestCard(nonTrump) : lowestCard(playable);
   }
 
   _decideFollowCard(seat, playable, ledSuit) {
@@ -417,16 +501,46 @@ class AIPlayer {
 
     const suitCards = playable.filter(c => cardSuit(c) === ledSuit);
     const currentWinnerCard = game.currentTrick.find(p => p.seat === currentWinnerSeat)?.card;
+    const cardsInTrick = game.currentTrick.length;
+    const isLastToPlay = cardsInTrick === 3;
 
     if (partnerWinning) {
-      // Partner is winning — play lowest
+      if (isLastToPlay) {
+        // Partner winning and we're last — play lowest safely
+        return lowestCard(suitCards.length > 0 ? suitCards : playable);
+      }
+
+      // Partner winning but opponent(s) still play after us — check if partner's card is safe
+      const partnerCard = game.currentTrick.find(p => p.seat === partnerSeat)?.card;
+      if (partnerCard && !isPartnerCardHighestRemaining(partnerCard, playable, game.playedCards)) {
+        // Partner's card could be beaten — try to play over with a guaranteed winner
+        if (suitCards.length > 0) {
+          const myBest = highestRemainingInSuit(ledSuit, playable, game.playedCards);
+          if (myBest) return myBest;
+          // Otherwise play lowest over partner if possible
+          const overPartner = suitCards.filter(c => cardRank(c) > cardRank(partnerCard));
+          if (overPartner.length > 0) return lowestCard(overPartner);
+        }
+      }
+
+      // Partner seems safe — play lowest
       return lowestCard(suitCards.length > 0 ? suitCards : playable);
     }
 
-    // Try to win
+    // Opponent winning — try to win
     if (currentWinnerCard && suitCards.length > 0) {
-      const winning = suitCards.filter(c => cardRank(c) > cardRank(currentWinnerCard));
-      if (winning.length > 0) return lowestCard(winning);
+      if (isLastToPlay) {
+        // Last to play — just need to beat the current winner with minimum
+        const winning = suitCards.filter(c => cardRank(c) > cardRank(currentWinnerCard));
+        if (winning.length > 0) return lowestCard(winning);
+      } else {
+        // Not last — prefer a guaranteed winner to avoid being overtaken
+        const myBest = highestRemainingInSuit(ledSuit, playable, game.playedCards);
+        if (myBest && cardRank(myBest) > cardRank(currentWinnerCard)) return myBest;
+        // Fall back to lowest winning card
+        const winning = suitCards.filter(c => cardRank(c) > cardRank(currentWinnerCard));
+        if (winning.length > 0) return lowestCard(winning);
+      }
     }
 
     return lowestCard(suitCards.length > 0 ? suitCards : playable);
@@ -439,27 +553,63 @@ class AIPlayer {
     const currentWinnerSeat = currentTrickWinner(game.currentTrick, trump);
     const partnerSeat = (seat + 2) % 4;
     const partnerWinning = currentWinnerSeat === partnerSeat;
+    const isLastToPlay = game.currentTrick.length === 3;
 
     const trumpCards = playable.filter(c => cardSuit(c) === trump);
+    const nonTrump = playable.filter(c => cardSuit(c) !== trump);
 
-    if (!partnerWinning && trumpCards.length > 0) {
-      // Trump to win the trick — use lowest trump
+    if (partnerWinning && isLastToPlay) {
+      // Partner winning and no threats remain — sluff strategically
+      return this._bestSluff(nonTrump, trumpCards, playable);
+    }
+
+    if (partnerWinning && !isLastToPlay) {
+      // Partner winning but opponent plays after — check if partner is safe
+      const partnerCard = game.currentTrick.find(p => p.seat === partnerSeat)?.card;
+      if (partnerCard) {
+        const opponents = [0, 1, 2, 3].filter(s => s % 2 !== seat % 2);
+        const opponentsMayTrump = opponents.some(s =>
+          !game.currentTrick.some(p => p.seat === s) && // hasn't played yet
+          game.voidSuits[s].has(cardSuit(game.currentTrick[0].card)) // void in led suit
+        );
+        if (opponentsMayTrump && trumpCards.length > 0) {
+          // Opponent might trump partner — we should trump higher to protect
+          return lowestCard(trumpCards);
+        }
+      }
+      return this._bestSluff(nonTrump, trumpCards, playable);
+    }
+
+    // Opponent winning — try to trump
+    if (trumpCards.length > 0) {
       const currentWinnerCard = game.currentTrick.find(p => p.seat === currentWinnerSeat)?.card;
       const winnerIsTrump = currentWinnerCard && cardSuit(currentWinnerCard) === trump;
       if (winnerIsTrump) {
         // Need to over-trump
         const overTrumps = trumpCards.filter(c => cardRank(c) > cardRank(currentWinnerCard));
         if (overTrumps.length > 0) return lowestCard(overTrumps);
-        // Can't over-trump — sluff
-        const nonTrump = playable.filter(c => cardSuit(c) !== trump);
-        return nonTrump.length > 0 ? lowestCard(nonTrump) : lowestCard(playable);
+        // Can't over-trump — sluff instead of wasting trump
+        return this._bestSluff(nonTrump, [], playable);
       }
       return lowestCard(trumpCards);
     }
 
-    // Partner winning or no trump — sluff lowest non-trump
-    const nonTrump = playable.filter(c => cardSuit(c) !== trump);
-    return nonTrump.length > 0 ? lowestCard(nonTrump) : lowestCard(playable);
+    // No trump — sluff
+    return this._bestSluff(nonTrump, trumpCards, playable);
+  }
+
+  /** Pick the best card to discard — prefer low cards from suits where we hold no winners. */
+  _bestSluff(nonTrump, trumpCards, playable) {
+    if (nonTrump.length > 0) {
+      // Prefer discarding from suits where we don't hold the highest remaining
+      const game = this.game;
+      const losers = nonTrump.filter(c =>
+        !highestRemainingInSuit(cardSuit(c), playable, game.playedCards)
+      );
+      if (losers.length > 0) return lowestCard(losers);
+      return lowestCard(nonTrump);
+    }
+    return lowestCard(trumpCards.length > 0 ? trumpCards : playable);
   }
 
   _getTramCards(seat) {

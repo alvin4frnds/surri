@@ -41,8 +41,8 @@ When partner asks for support, the bot evaluates its hand and responds:
 | Condition | Response |
 |---|---|
 | `estimated_tricks >= 4` (with partner's likely trump) | **Major** |
-| `estimated_tricks >= 2` | **Minor** |
-| `estimated_tricks < 2` | **Pass** |
+| `estimated_tricks >= 1` | **Minor** |
+| `estimated_tricks < 1` | **Pass** |
 
 When deciding whether to **ask** for support: the bot asks when its own `best_estimate` is in the range 5–7 (borderline bid — partner's input matters). If `best_estimate >= 8`, bid without asking. If `best_estimate < 5`, pass without asking.
 
@@ -55,6 +55,8 @@ When deciding whether to **ask** for support: the bot asks when its own `best_es
 ```
 if best_estimate >= 10:
     bid best_estimate with best_trump
+elif best_estimate >= 9 AND partner_signal == "Minor":
+    bid 10 with best_trump
 elif best_estimate >= 8 AND partner_signal == "Major":
     bid 10 with best_trump
 elif best_estimate >= 7 AND partner_signal == "Major":

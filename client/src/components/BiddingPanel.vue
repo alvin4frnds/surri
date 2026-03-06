@@ -42,9 +42,18 @@ function initRevealBid() {
   revealBid.value = currentBid.value
 }
 
-// Check if partner asked for support signal
+const pendingSupportRequest = computed(() => props.gameState.pendingSupportRequest)
+
+// Check if partner asked for support and I need to respond right now
 const partnerAskedMe = computed(() => {
-  return supportAsked.value[partnerSeat.value] === true && supportSignals.value[props.mySeat] === null
+  return pendingSupportRequest.value
+    && pendingSupportRequest.value.asker === partnerSeat.value
+    && supportSignals.value[props.mySeat] === null
+})
+
+// Am I the active seat only because of a pending support request (not my bidding turn)?
+const isSupportResponseOnly = computed(() => {
+  return isMyTurn.value && partnerAskedMe.value
 })
 
 // Check if I already asked partner
@@ -215,6 +224,26 @@ watch(phase, (newPhase) => {
       </div>
     </div>
 
+    <!-- BIDDING PHASE: partner asked for support (I just need to respond) -->
+    <div v-else-if="(phase === 'bidding' || phase === 'bidding_forced') && isSupportResponseOnly">
+      <div class="bg-slate-800 border-t border-slate-600 px-4 py-3">
+        <div class="text-slate-300 text-sm text-center mb-3">{{ partnerName() }} asks for your support:</div>
+        <div class="flex gap-2 justify-center">
+          <button
+            v-for="signal in ['Major', 'Minor', 'Pass']"
+            :key="signal"
+            @click="giveSupport(signal)"
+            class="flex-1 py-2 rounded-lg text-sm font-medium transition-colors"
+            :class="signal === 'Major' ? 'bg-green-700 hover:bg-green-600 text-white'
+              : signal === 'Minor' ? 'bg-yellow-700 hover:bg-yellow-600 text-white'
+              : 'bg-slate-700 hover:bg-slate-600 text-slate-300'"
+          >
+            {{ signal }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- BIDDING PHASE: local player's turn -->
     <div v-else-if="(phase === 'bidding' || phase === 'bidding_forced') && isMyTurn">
       <div class="bg-slate-800 border-t border-slate-600 px-4 py-3 space-y-3">
@@ -235,6 +264,7 @@ watch(phase, (newPhase) => {
         <!-- Ask Partner + Pass -->
         <div class="flex gap-2">
           <button
+            v-if="!isForced"
             @click="askSupport"
             :disabled="iAskedPartner"
             class="flex-1 bg-blue-700 hover:bg-blue-600 disabled:opacity-40 text-white text-sm font-medium rounded-lg py-2 transition-colors"
@@ -314,23 +344,6 @@ watch(phase, (newPhase) => {
           </span>
         </button>
 
-        <!-- Support response prompt -->
-        <div v-if="partnerAskedMe" class="border-t border-slate-600 pt-3">
-          <div class="text-slate-300 text-sm text-center mb-2">{{ partnerName() }} asks for support:</div>
-          <div class="flex gap-2">
-            <button
-              v-for="signal in ['Major', 'Minor', 'Pass']"
-              :key="signal"
-              @click="giveSupport(signal)"
-              class="flex-1 py-2 rounded-lg text-xs font-medium transition-colors"
-              :class="signal === 'Major' ? 'bg-green-700 hover:bg-green-600 text-white'
-                : signal === 'Minor' ? 'bg-yellow-700 hover:bg-yellow-600 text-white'
-                : 'bg-slate-700 hover:bg-slate-600 text-slate-300'"
-            >
-              {{ signal }}
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   </div>

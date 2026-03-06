@@ -80,7 +80,7 @@ Surri is a trick-taking game that inherits its trick engine from Spades but repl
 - **Trump chosen by bidder** each round (not always spades); no breaking rule — any suit can be led anytime
 - **Bidding**: Sequential clockwise starting left of dealer. Voluntary bid ≥10; if all 4 pass, first player is **forced to bid ≥8**
 - **Support signals**: Before bidding, a player may ask their partner for Major/Minor/Pass — visible to all
-- **Bid ≥10**: Partner's hand revealed to ALL players; bidder controls partner's card selection
+- **Bid ≥10**: Partner's hand revealed to ALL players; bidder controls partner's card selection; **bidder leads trick 1**
 - **Bid 13**: Instant win/lose — existing score stops mattering, losing side takes a loss; special dealer rotation (see `docs/GameFlow.md` §6 table)
 - **Defending team target**: ≥(14 − bid) tricks to break the bid (e.g., bid 10 → defense needs ≥4)
 - **Scoring**: Only the dealer's team has a score (high = bad, ≥52 = lose)
