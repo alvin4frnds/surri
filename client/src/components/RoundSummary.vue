@@ -98,7 +98,7 @@ function formatCard(card) {
 
 <template>
   <div
-    class="fixed inset-0 bg-black/80 z-30 flex items-center justify-center p-4"
+    class="absolute inset-0 bg-black/80 z-30 flex items-center justify-center p-4"
     @click="emit('continue')"
   >
     <div

@@ -32,7 +32,7 @@ function standings() {
 </script>
 
 <template>
-  <div class="fixed inset-0 bg-[#0f1b2d] z-50 flex flex-col items-center justify-center px-6 py-10 overflow-y-auto">
+  <div class="absolute inset-0 bg-[#0f1b2d] z-50 flex flex-col items-center justify-center px-6 py-10 overflow-y-auto">
     <!-- Celebration -->
     <div class="text-5xl mb-4">🏆</div>
     <div class="text-2xl font-bold text-yellow-400 mb-2 tracking-wider">WINNER</div>

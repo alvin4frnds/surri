@@ -88,7 +88,11 @@ async function runBotTurns(roomCode) {
       if (game.phase === 'scoring') {
         const baseDelay = game.tramResult ? 8000 : 5000;
         const scoringDelay = process.env.FAST_TEST ? 50 : baseDelay;
-        await new Promise(r => setTimeout(r, scoringDelay));
+        // Allow early advance via next_round event
+        await new Promise(r => {
+          room._scoringResolve = r;
+          setTimeout(() => { room._scoringResolve = null; r(); }, scoringDelay);
+        });
         game.round++;
         game.startRound();
         broadcastGameState(roomCode);
@@ -457,6 +461,19 @@ io.on('connection', (socket) => {
     } catch (err) {
       console.error('call_tram error:', err);
       socket.emit('error', { message: err.message });
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // next_round — skip scoring delay
+  // -------------------------------------------------------------------------
+  socket.on('next_round', () => {
+    const info = socketToRoom.get(socket.id);
+    if (!info) return;
+    const room = rooms.get(info.roomCode);
+    if (room && room._scoringResolve) {
+      room._scoringResolve();
+      room._scoringResolve = null;
     }
   });
 

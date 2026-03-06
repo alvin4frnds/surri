@@ -72,26 +72,28 @@ function onLeave() {
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#0f1b2d] text-slate-200">
-    <LobbyScreen
-      v-if="view === 'lobby'"
-      :error="error"
-      @create-room="onCreateRoom"
-      @join-room="onJoinRoom"
-    />
-    <WaitingRoom
-      v-else-if="view === 'waiting'"
-      :roomState="roomState"
-      :mySeat="mySeat"
-      @start-game="onStartGame"
-      @leave="onLeave"
-    />
-    <GameBoard
-      v-else-if="view === 'game'"
-      :gameState="gameState"
-      :mySeat="mySeat"
-      @game-action="onGameAction"
-      @leave="onLeave"
-    />
+  <div class="min-h-screen bg-[#1a1a1a] flex items-center justify-center">
+    <div class="w-full max-w-[390px] h-screen max-h-[844px] relative overflow-hidden bg-[#0f1b2d] text-slate-200">
+      <LobbyScreen
+        v-if="view === 'lobby'"
+        :error="error"
+        @create-room="onCreateRoom"
+        @join-room="onJoinRoom"
+      />
+      <WaitingRoom
+        v-else-if="view === 'waiting'"
+        :roomState="roomState"
+        :mySeat="mySeat"
+        @start-game="onStartGame"
+        @leave="onLeave"
+      />
+      <GameBoard
+        v-else-if="view === 'game'"
+        :gameState="gameState"
+        :mySeat="mySeat"
+        @game-action="onGameAction"
+        @leave="onLeave"
+      />
+    </div>
   </div>
 </template>

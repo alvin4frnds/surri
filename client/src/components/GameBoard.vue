@@ -1,9 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue'
-import InfoBar from './InfoBar.vue'
 import PlayerArea from './PlayerArea.vue'
 import TrickArea from './TrickArea.vue'
-import BidProgressBar from './BidProgressBar.vue'
 import BiddingPanel from './BiddingPanel.vue'
 import PlayerHand from './PlayerHand.vue'
 import TramOverlay from './TramOverlay.vue'
@@ -99,9 +97,35 @@ function seatBidAction(seat) {
   const entry = bidHistory.value.find(e => e.seat === seat)
   if (!entry) return null
   if (entry.action === 'pass') return 'Pass'
-  const SUITS = { S: '♠', H: '♥', D: '♦', C: '♣' }
+  const SUITS = { S: '\u2660', H: '\u2665', D: '\u2666', C: '\u2663' }
   return `Bid ${entry.bid} ${SUITS[entry.trump] || ''}`
 }
+
+// Team trick computations
+function teamTarget(seat) {
+  if (bid.value == null || biddingTeam.value == null) return 0
+  const seatTeam = seat % 2
+  return seatTeam === biddingTeam.value ? bid.value : 14 - bid.value
+}
+
+function teamTricksWon(seat) {
+  const seatTeam = seat % 2
+  const teamSeats = seatTeam === 0 ? [0, 2] : [1, 3]
+  return (tricks.value[teamSeats[0]] || 0) + (tricks.value[teamSeats[1]] || 0)
+}
+
+function isMyTeam(seat) {
+  return seat % 2 === props.mySeat % 2
+}
+
+// Score badge computations
+const myTeamTricks = computed(() => teamTricksWon(props.mySeat))
+const myTeamTarget = computed(() => teamTarget(props.mySeat))
+const oppTeamTricks = computed(() => teamTricksWon(props.mySeat % 2 === 0 ? 1 : 0))
+const oppTeamTarget = computed(() => teamTarget(props.mySeat % 2 === 0 ? 1 : 0))
+
+// Trump watermark symbol
+const TRUMP_SYMBOLS = { S: '\u2660', H: '\u2665', D: '\u2666', C: '\u2663' }
 
 // Game actions
 function onGameAction(event, payload) {
@@ -129,6 +153,7 @@ function onTram(payload) {
 
 function onRoundContinue() {
   showRoundSummary.value = false
+  onGameAction('next_round', {})
 }
 
 function onPlayAgain() {
@@ -138,179 +163,192 @@ function onPlayAgain() {
 function onLeave() {
   emit('leave')
 }
-
-// Check positions for layout
-const POSITIONS = ['north', 'west', 'east']
 </script>
 
 <template>
-  <div class="h-screen flex flex-col bg-[#0f1b2d] overflow-hidden">
-    <!-- Info Bar -->
-    <InfoBar
-      :trump="trump"
-      :dealerScore="dealerScore"
-      :dealer="dealer"
-      :seats="seats"
-      :bid="bid"
-      :biddingSeat="biddingSeat"
-    />
-
-    <!-- Main play area (scrollable if needed) -->
-    <div class="flex-1 flex flex-col min-h-0 overflow-y-auto">
-      <!-- North player -->
-      <div class="flex justify-center pt-3 pb-1">
-        <PlayerArea
-          :seat="absSeat('north')"
-          :seatData="seats[absSeat('north')]"
-          :tricks="tricks[absSeat('north')] ?? 0"
-          :losses="seats[absSeat('north')]?.losses ?? 0"
-          :isDealer="dealer === absSeat('north')"
-          :isActive="activeSeat === absSeat('north')"
-          :cardCount="handSizes[absSeat('north')] ?? 0"
-          position="north"
-          :isSouth="false"
-          :supportSignal="seatSupportSignal(absSeat('north'))"
-          :bidAction="seatBidAction(absSeat('north'))"
-        />
-      </div>
-
-      <!-- West + Trick Area + East -->
-      <div class="flex items-center justify-between px-3 flex-1 min-h-0">
-        <!-- West -->
-        <PlayerArea
-          :seat="absSeat('west')"
-          :seatData="seats[absSeat('west')]"
-          :tricks="tricks[absSeat('west')] ?? 0"
-          :losses="seats[absSeat('west')]?.losses ?? 0"
-          :isDealer="dealer === absSeat('west')"
-          :isActive="activeSeat === absSeat('west')"
-          :cardCount="handSizes[absSeat('west')] ?? 0"
-          position="west"
-          :isSouth="false"
-          :supportSignal="seatSupportSignal(absSeat('west'))"
-          :bidAction="seatBidAction(absSeat('west'))"
-        />
-
-        <!-- Center trick area -->
-        <div class="flex-1 flex items-center justify-center py-2">
-          <TrickArea
-            :currentTrick="gs.currentTrick ?? []"
-            :mySeat="mySeat"
-          />
-        </div>
-
-        <!-- East -->
-        <PlayerArea
-          :seat="absSeat('east')"
-          :seatData="seats[absSeat('east')]"
-          :tricks="tricks[absSeat('east')] ?? 0"
-          :losses="seats[absSeat('east')]?.losses ?? 0"
-          :isDealer="dealer === absSeat('east')"
-          :isActive="activeSeat === absSeat('east')"
-          :cardCount="handSizes[absSeat('east')] ?? 0"
-          position="east"
-          :isSouth="false"
-          :supportSignal="seatSupportSignal(absSeat('east'))"
-          :bidAction="seatBidAction(absSeat('east'))"
-        />
-      </div>
-
-      <!-- South (me) -->
-      <div class="flex justify-center pb-1">
-        <PlayerArea
-          :seat="mySeat"
-          :seatData="seats[mySeat]"
-          :tricks="tricks[mySeat] ?? 0"
-          :losses="seats[mySeat]?.losses ?? 0"
-          :isDealer="dealer === mySeat"
-          :isActive="activeSeat === mySeat"
-          :cardCount="myHand.length"
-          position="south"
-          :isSouth="true"
-          :supportSignal="seatSupportSignal(mySeat)"
-          :bidAction="seatBidAction(mySeat)"
-        />
-      </div>
-
-      <!-- Bidding panel (overlays during bidding phases) -->
-      <div v-if="isBidding">
-        <BiddingPanel
-          :gameState="gs"
-          :mySeat="mySeat"
-          @ask-support="onBiddingAction('ask_support', {})"
-          @give-support="(p) => onBiddingAction('give_support', p)"
-          @place-bid="(p) => onBiddingAction('place_bid', p)"
-          @pass-bid="onBiddingAction('pass_bid', {})"
-          @increase-bid="(p) => onBiddingAction('increase_bid', p)"
-          @start-play="onBiddingAction('start_play', {})"
-        />
-      </div>
-
-      <!-- Partner hand (bid >= 10, playing phase) -->
-      <div
-        v-if="isPlaying && partnerHand && partnerHand.length > 0"
-        class="bg-slate-800/90 border-t border-slate-700"
+  <div class="h-full w-full relative overflow-hidden" style="background: radial-gradient(ellipse at 50% 40%, #162d4a 0%, #0f1b2d 60%, #0a1220 100%)">
+    <!-- Trump watermark -->
+    <div
+      v-if="trump"
+      class="absolute inset-0 flex items-center justify-center pointer-events-none z-0"
+    >
+      <span
+        class="text-[220px] leading-none select-none"
+        :class="['H','D'].includes(trump) ? 'text-red-400/[0.10]' : 'text-white/[0.10]'"
       >
-        <div class="px-3 pt-2 pb-1">
-          <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">
-            {{ seats[partnerSeat]?.name || 'Partner' }}'s Hand
-            <span v-if="amRevealedPartner" class="text-yellow-400 ml-2">(revealed)</span>
-          </div>
-          <PlayerHand
-            :cards="partnerHand"
-            :playableCards="isPartnersTurn ? playableCards : []"
-            :myTurn="isPartnersTurn"
-            :readOnly="!isPartnersTurn"
-            @play-card="onPartnerCard"
-          />
-        </div>
-        <!-- Prompt when it's partner's turn -->
-        <div v-if="isPartnersTurn" class="px-3 pb-2 text-center text-sm text-yellow-400">
-          Pick a card for {{ seats[partnerSeat]?.name || 'partner' }} to play
-        </div>
-        <div v-else-if="amRevealedPartner && activeSeat === partnerSeat" class="px-3 pb-2 text-center text-sm text-slate-400">
-          {{ seats[biddingSeat]?.name || 'Bidder' }} is choosing your card…
-        </div>
-      </div>
+        {{ TRUMP_SYMBOLS[trump] }}
+      </span>
+    </div>
 
-      <!-- Bid progress bar -->
-      <BidProgressBar
-        v-if="bid != null"
-        :bid="bid"
-        :biddingTeam="biddingTeam"
-        :tricks="tricks"
+    <!-- North player -->
+    <div class="absolute top-3 left-1/2 -translate-x-1/2 z-10">
+      <PlayerArea
+        :seat="absSeat('north')"
+        :seatData="seats[absSeat('north')]"
+        :tricks="tricks[absSeat('north')] ?? 0"
+        :losses="seats[absSeat('north')]?.losses ?? 0"
+        :isDealer="dealer === absSeat('north')"
+        :dealerScore="dealerScore"
+        :isActive="activeSeat === absSeat('north')"
+        :cardCount="handSizes[absSeat('north')] ?? 0"
+        position="north"
+        :isSouth="false"
+        :supportSignal="seatSupportSignal(absSeat('north'))"
+        :bidAction="seatBidAction(absSeat('north'))"
+        :teamTricksWon="teamTricksWon(absSeat('north'))"
+        :teamTricksNeeded="teamTarget(absSeat('north'))"
+        :isMyTeam="isMyTeam(absSeat('north'))"
+      />
+    </div>
+
+    <!-- West player -->
+    <div class="absolute left-2 top-[35%] -translate-y-1/2 z-10">
+      <PlayerArea
+        :seat="absSeat('west')"
+        :seatData="seats[absSeat('west')]"
+        :tricks="tricks[absSeat('west')] ?? 0"
+        :losses="seats[absSeat('west')]?.losses ?? 0"
+        :isDealer="dealer === absSeat('west')"
+        :dealerScore="dealerScore"
+        :isActive="activeSeat === absSeat('west')"
+        :cardCount="handSizes[absSeat('west')] ?? 0"
+        position="west"
+        :isSouth="false"
+        :supportSignal="seatSupportSignal(absSeat('west'))"
+        :bidAction="seatBidAction(absSeat('west'))"
+        :teamTricksWon="teamTricksWon(absSeat('west'))"
+        :teamTricksNeeded="teamTarget(absSeat('west'))"
+        :isMyTeam="isMyTeam(absSeat('west'))"
+      />
+    </div>
+
+    <!-- East player -->
+    <div class="absolute right-2 top-[35%] -translate-y-1/2 z-10">
+      <PlayerArea
+        :seat="absSeat('east')"
+        :seatData="seats[absSeat('east')]"
+        :tricks="tricks[absSeat('east')] ?? 0"
+        :losses="seats[absSeat('east')]?.losses ?? 0"
+        :isDealer="dealer === absSeat('east')"
+        :dealerScore="dealerScore"
+        :isActive="activeSeat === absSeat('east')"
+        :cardCount="handSizes[absSeat('east')] ?? 0"
+        position="east"
+        :isSouth="false"
+        :supportSignal="seatSupportSignal(absSeat('east'))"
+        :bidAction="seatBidAction(absSeat('east'))"
+        :teamTricksWon="teamTricksWon(absSeat('east'))"
+        :teamTricksNeeded="teamTarget(absSeat('east'))"
+        :isMyTeam="isMyTeam(absSeat('east'))"
+      />
+    </div>
+
+    <!-- Center trick area -->
+    <div class="absolute top-[30%] left-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
+      <TrickArea
+        :currentTrick="gs.currentTrick ?? []"
         :mySeat="mySeat"
       />
+    </div>
 
-      <!-- TRAM button + your turn indicator -->
-      <div v-if="isPlaying" class="flex items-center justify-between px-4 py-2">
-        <button
-          @click="showTram = true"
-          class="bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors"
-        >
-          TRAM
-        </button>
-        <span v-if="isPartnersTurn" class="text-yellow-400 text-sm font-medium">
-          Play partner's card
-        </span>
-        <span v-else-if="myTurn && activeSeat === mySeat" class="text-yellow-400 text-sm font-medium">
-          Your turn
-        </span>
+    <!-- Score badges -->
+    <div v-if="bid != null && isPlaying" class="absolute top-3 left-3 z-10">
+      <div class="bg-blue-600 border border-blue-400/30 rounded-xl px-3 py-1.5 text-center shadow-lg">
+        <span class="text-white font-black text-2xl">{{ myTeamTricks }}</span>
+        <span class="text-blue-200 text-base"> of {{ myTeamTarget }}</span>
       </div>
+    </div>
+    <div v-if="bid != null && isPlaying" class="absolute top-3 right-3 z-10">
+      <div class="bg-red-600 border border-red-400/30 rounded-xl px-3 py-1.5 text-center shadow-lg">
+        <span class="text-white font-black text-2xl">{{ oppTeamTricks }}</span>
+        <span class="text-red-200 text-base"> of {{ oppTeamTarget }}</span>
+      </div>
+    </div>
 
-      <!-- My hand -->
-      <div class="border-t border-slate-700">
-        <div v-if="amRevealedPartner && isPlaying" class="px-3 pt-2 text-xs text-yellow-400 text-center">
-          Your hand is revealed to all players
-        </div>
+    <!-- South (me) info -->
+    <div class="absolute left-1/2 -translate-x-1/2 z-10" :class="partnerHand && partnerHand.length > 0 && isPlaying ? 'bottom-[310px]' : 'bottom-[170px]'">
+      <PlayerArea
+        :seat="mySeat"
+        :seatData="seats[mySeat]"
+        :tricks="tricks[mySeat] ?? 0"
+        :losses="seats[mySeat]?.losses ?? 0"
+        :isDealer="dealer === mySeat"
+        :dealerScore="dealerScore"
+        :isActive="activeSeat === mySeat"
+        :cardCount="myHand.length"
+        position="south"
+        :isSouth="true"
+        :supportSignal="seatSupportSignal(mySeat)"
+        :bidAction="seatBidAction(mySeat)"
+        :teamTricksWon="teamTricksWon(mySeat)"
+        :teamTricksNeeded="teamTarget(mySeat)"
+        :isMyTeam="true"
+      />
+    </div>
+
+    <!-- TRAM button + turn indicator -->
+    <div v-if="isPlaying" class="absolute bottom-[170px] left-3 z-20">
+      <button
+        @click="showTram = true"
+        class="bg-slate-700/80 hover:bg-slate-600 text-white text-xs font-medium rounded-lg px-3 py-1.5 transition-colors"
+      >
+        TRAM
+      </button>
+    </div>
+    <div v-if="isPlaying && (isPartnersTurn || (myTurn && activeSeat === mySeat))" class="absolute bottom-[170px] right-3 z-20">
+      <span v-if="isPartnersTurn" class="text-yellow-400 text-xs font-medium bg-slate-900/80 rounded px-2 py-1">
+        Play partner's card
+      </span>
+      <span v-else class="text-yellow-400 text-xs font-medium bg-slate-900/80 rounded px-2 py-1">
+        Your turn
+      </span>
+    </div>
+
+    <!-- Partner hand (bid >= 10, playing phase) -->
+    <div
+      v-if="isPlaying && partnerHand && partnerHand.length > 0"
+      class="absolute bottom-[155px] left-0 right-0 z-[15]"
+    >
+      <div class="px-2">
         <PlayerHand
-          :cards="myHand"
-          :playableCards="isPartnersTurn ? [] : playableCards"
-          :myTurn="myTurn && activeSeat === mySeat && !isPartnersTurn"
-          :readOnly="amRevealedPartner && isPlaying"
-          @play-card="onPlayCard"
+          :cards="partnerHand"
+          :playableCards="isPartnersTurn ? playableCards : []"
+          :myTurn="isPartnersTurn"
+          :readOnly="!isPartnersTurn"
+          :label="(seats[partnerSeat]?.name || 'Partner') + '\'s Hand'"
+          :compact="true"
+          @play-card="onPartnerCard"
         />
       </div>
+    </div>
+
+    <!-- My hand -->
+    <div class="absolute bottom-0 left-0 right-0 z-20">
+      <div v-if="amRevealedPartner && isPlaying" class="px-3 pt-1 text-xs text-yellow-400 text-center">
+        Your hand is revealed to all players
+      </div>
+      <PlayerHand
+        :cards="myHand"
+        :playableCards="isPartnersTurn ? [] : playableCards"
+        :myTurn="myTurn && activeSeat === mySeat && !isPartnersTurn"
+        :readOnly="amRevealedPartner && isPlaying"
+        @play-card="onPlayCard"
+      />
+    </div>
+
+    <!-- Bidding popup overlay (leaves hand visible at bottom) -->
+    <div v-if="isBidding" class="absolute top-0 left-0 right-0 bottom-[160px] bg-black/60 backdrop-blur-sm z-20 flex items-center justify-center p-4">
+      <BiddingPanel
+        :gameState="gs"
+        :mySeat="mySeat"
+        class="w-full max-w-[340px]"
+        @ask-support="onBiddingAction('ask_support', {})"
+        @give-support="(p) => onBiddingAction('give_support', p)"
+        @place-bid="(p) => onBiddingAction('place_bid', p)"
+        @pass-bid="onBiddingAction('pass_bid', {})"
+        @increase-bid="(p) => onBiddingAction('increase_bid', p)"
+        @start-play="onBiddingAction('start_play', {})"
+      />
     </div>
 
     <!-- TRAM Overlay -->
