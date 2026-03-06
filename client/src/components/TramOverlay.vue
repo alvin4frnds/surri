@@ -70,7 +70,7 @@ function sorted(cards) {
 </script>
 
 <template>
-  <div class="fixed inset-0 bg-black/80 z-40 flex flex-col">
+  <div class="absolute inset-0 bg-black/80 z-40 flex flex-col">
     <!-- Header -->
     <div class="flex items-center justify-between px-4 py-3 bg-slate-800 border-b border-slate-600">
       <button @click="emit('close')" class="text-slate-400 hover:text-white text-xl font-bold">✕</button>

@@ -9,7 +9,7 @@ const props = defineProps({
 
 const emit = defineEmits(['ask-support', 'give-support', 'place-bid', 'pass-bid', 'increase-bid', 'start-play'])
 
-const SUITS = { S: '♠', H: '♥', D: '♦', C: '♣' }
+const SUITS = { S: '\u2660', H: '\u2665', D: '\u2666', C: '\u2663' }
 const SUIT_KEYS = ['S', 'H', 'D', 'C']
 const RED_SUITS = ['H', 'D']
 
@@ -27,6 +27,8 @@ const partnerSeat = computed(() => (props.mySeat + 2) % 4)
 const seats = computed(() => props.gameState.seats || [])
 const partnerHand = computed(() => props.gameState.partnerHand)
 const currentBid = computed(() => props.gameState.bid)
+// The revealed partner is always the bidder's partner (not necessarily our partner)
+const revealedPartnerSeat = computed(() => biddingSeat.value != null ? (biddingSeat.value + 2) % 4 : null)
 
 // Forced bid phase
 const isForced = computed(() => phase.value === 'bidding_forced')
@@ -92,7 +94,6 @@ function increaseBid() {
 }
 
 function decreaseRevealBid() {
-  // Can't go below current bid
   const cur = currentBid.value ?? 10
   if (revealBidValue() > cur) revealBid.value = revealBidValue() - 1
 }
@@ -111,6 +112,12 @@ function startPlay() {
 
 function partnerName() {
   const s = seats.value[partnerSeat.value]
+  return s ? s.name : 'Partner'
+}
+
+function revealedPartnerName() {
+  if (revealedPartnerSeat.value == null) return 'Partner'
+  const s = seats.value[revealedPartnerSeat.value]
   return s ? s.name : 'Partner'
 }
 
@@ -141,80 +148,80 @@ watch(phase, (newPhase) => {
 </script>
 
 <template>
-  <div>
-    <!-- PARTNER REVEAL PHASE -->
-    <div v-if="phase === 'partner_reveal'" class="bg-slate-900/95 p-4 space-y-4">
-      <!-- Partner hand display -->
-      <div class="bg-slate-800 border border-slate-600 rounded-xl p-3" v-if="partnerHand">
-        <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">{{ partnerName() }}'s Hand</div>
-        <PlayerHand :cards="partnerHand" :playableCards="[]" :myTurn="false" :readOnly="true" />
-      </div>
+  <div class="bg-slate-800 border border-slate-600 rounded-2xl overflow-hidden" style="box-shadow: 0 0 40px rgba(0,0,0,0.5)">
+    <!-- Header -->
+    <div class="bg-slate-700 px-4 py-2.5 text-center">
+      <span class="font-bold text-white text-sm uppercase tracking-wider">
+        {{ phase === 'partner_reveal' ? 'Partner Reveal' : isForced ? 'Forced Bid' : 'Bidding' }}
+      </span>
+    </div>
 
+    <!-- PARTNER REVEAL PHASE (slim controls only — cards shown on north side) -->
+    <div v-if="phase === 'partner_reveal'" class="p-3 space-y-3">
       <!-- Bidder controls -->
       <div v-if="biddingSeat === mySeat">
-        <div class="text-center text-slate-300 text-sm mb-3">
+        <div class="text-center text-slate-300 text-sm mb-2">
           You bid <span class="font-bold text-white">{{ currentBid }}</span> — increase bid?
         </div>
 
         <!-- Bid picker -->
-        <div class="flex items-center justify-center gap-4 mb-4">
+        <div class="flex items-center justify-center gap-4 mb-3">
           <button
             @click="decreaseRevealBid"
             :disabled="revealBidValue() <= currentBid"
-            class="w-10 h-10 rounded-full bg-slate-700 hover:bg-slate-600 disabled:opacity-30 text-white font-bold text-xl flex items-center justify-center"
-          >‹</button>
+            class="w-9 h-9 rounded-full bg-slate-700 hover:bg-slate-600 disabled:opacity-30 text-white font-bold text-lg flex items-center justify-center"
+          >&#x2039;</button>
 
-          <span class="text-2xl font-bold text-white w-12 text-center">{{ revealBidValue() }}</span>
+          <span class="text-xl font-bold text-white w-10 text-center">{{ revealBidValue() }}</span>
 
           <button
             @click="increaseRevealBid"
             :disabled="revealBidValue() >= 13"
-            class="w-10 h-10 rounded-full bg-slate-700 hover:bg-slate-600 disabled:opacity-30 text-white font-bold text-xl flex items-center justify-center"
-          >›</button>
+            class="w-9 h-9 rounded-full bg-slate-700 hover:bg-slate-600 disabled:opacity-30 text-white font-bold text-lg flex items-center justify-center"
+          >&#x203A;</button>
         </div>
 
         <button
           @click="startPlay"
-          class="w-full bg-green-600 hover:bg-green-500 text-white font-bold rounded-lg py-3 transition-colors"
+          class="w-full bg-green-600 hover:bg-green-500 text-white font-bold rounded-lg py-2.5 transition-colors text-sm"
         >
-          START ▶
+          START &#x25B6;
         </button>
       </div>
 
       <!-- Non-bidder waiting -->
-      <div v-else class="text-center text-slate-400 text-sm py-2">
-        Waiting for {{ bidderName() }} to start…
+      <div v-else class="text-center text-slate-400 text-sm py-1">
+        Waiting for {{ bidderName() }} to start...
       </div>
     </div>
 
     <!-- BIDDING PHASE: another player's turn -->
-    <div v-else-if="(phase === 'bidding' || phase === 'bidding_forced') && !isMyTurn">
-      <div class="bg-slate-800/80 border-t border-slate-700 px-4 py-2">
-        <div class="text-slate-400 text-sm text-center">Bidding in progress…</div>
+    <div v-else-if="(phase === 'bidding' || phase === 'bidding_forced') && !isMyTurn" class="p-4">
+      <div class="text-slate-400 text-sm text-center mb-3">Bidding in progress...</div>
 
-        <!-- Bid history bubbles -->
-        <div class="flex flex-wrap gap-2 mt-2 justify-center">
-          <div
-            v-for="(entry, i) in bidHistory"
-            :key="i"
-            class="text-xs bg-slate-700 rounded-full px-3 py-1"
-            :class="entry.action === 'pass' ? 'text-slate-400' : 'text-green-300'"
-          >
-            {{ seatName(entry.seat) }}: {{ historyLabel(entry) }}
-          </div>
+      <!-- Bid history bubbles -->
+      <div class="flex flex-wrap gap-2 justify-center">
+        <div
+          v-for="(entry, i) in bidHistory"
+          :key="i"
+          class="text-xs bg-slate-700 rounded-full px-3 py-1"
+          :class="entry.action === 'pass' ? 'text-slate-400' : 'text-green-300'"
+        >
+          {{ seatName(entry.seat) }}: {{ historyLabel(entry) }}
         </div>
       </div>
 
       <!-- Support signal response (partner asked for my support) -->
-      <div v-if="partnerAskedMe" class="bg-slate-800 border-t border-slate-600 px-4 py-3">
+      <div v-if="partnerAskedMe" class="mt-4 pt-3 border-t border-slate-600">
         <div class="text-slate-300 text-sm text-center mb-3">{{ partnerName() }} asks for your support:</div>
         <div class="flex gap-2 justify-center">
           <button
-            v-for="signal in ['Major', 'Minor', 'Pass']"
+            v-for="signal in ['Full', 'Major', 'Minor', 'Pass']"
             :key="signal"
             @click="giveSupport(signal)"
             class="flex-1 py-2 rounded-lg text-sm font-medium transition-colors"
-            :class="signal === 'Major' ? 'bg-green-700 hover:bg-green-600 text-white'
+            :class="signal === 'Full' ? 'bg-blue-700 hover:bg-blue-600 text-white'
+              : signal === 'Major' ? 'bg-green-700 hover:bg-green-600 text-white'
               : signal === 'Minor' ? 'bg-yellow-700 hover:bg-yellow-600 text-white'
               : 'bg-slate-700 hover:bg-slate-600 text-slate-300'"
           >
@@ -225,126 +232,126 @@ watch(phase, (newPhase) => {
     </div>
 
     <!-- BIDDING PHASE: partner asked for support (I just need to respond) -->
-    <div v-else-if="(phase === 'bidding' || phase === 'bidding_forced') && isSupportResponseOnly">
-      <div class="bg-slate-800 border-t border-slate-600 px-4 py-3">
-        <div class="text-slate-300 text-sm text-center mb-3">{{ partnerName() }} asks for your support:</div>
-        <div class="flex gap-2 justify-center">
-          <button
-            v-for="signal in ['Major', 'Minor', 'Pass']"
-            :key="signal"
-            @click="giveSupport(signal)"
-            class="flex-1 py-2 rounded-lg text-sm font-medium transition-colors"
-            :class="signal === 'Major' ? 'bg-green-700 hover:bg-green-600 text-white'
-              : signal === 'Minor' ? 'bg-yellow-700 hover:bg-yellow-600 text-white'
-              : 'bg-slate-700 hover:bg-slate-600 text-slate-300'"
-          >
-            {{ signal }}
-          </button>
-        </div>
+    <div v-else-if="(phase === 'bidding' || phase === 'bidding_forced') && isSupportResponseOnly" class="p-4">
+      <div class="text-slate-300 text-sm text-center mb-3">{{ partnerName() }} asks for your support:</div>
+      <div class="flex gap-2 justify-center">
+        <button
+          v-for="signal in ['Full', 'Major', 'Minor', 'Pass']"
+          :key="signal"
+          @click="giveSupport(signal)"
+          class="flex-1 py-2 rounded-lg text-sm font-medium transition-colors"
+          :class="signal === 'Major' ? 'bg-green-700 hover:bg-green-600 text-white'
+            : signal === 'Minor' ? 'bg-yellow-700 hover:bg-yellow-600 text-white'
+            : 'bg-slate-700 hover:bg-slate-600 text-slate-300'"
+        >
+          {{ signal }}
+        </button>
       </div>
     </div>
 
     <!-- BIDDING PHASE: local player's turn -->
-    <div v-else-if="(phase === 'bidding' || phase === 'bidding_forced') && isMyTurn">
-      <div class="bg-slate-800 border-t border-slate-600 px-4 py-3 space-y-3">
-        <div class="text-slate-200 text-sm text-center font-medium">Your turn to bid</div>
+    <div v-else-if="(phase === 'bidding' || phase === 'bidding_forced') && isMyTurn" class="p-4 space-y-3">
+      <div class="text-slate-200 text-sm text-center font-medium">Your turn to bid</div>
 
-        <!-- Bid history -->
-        <div class="flex flex-wrap gap-1 justify-center">
-          <div
-            v-for="(entry, i) in bidHistory"
-            :key="i"
-            class="text-xs bg-slate-700 rounded-full px-2 py-0.5"
-            :class="entry.action === 'pass' ? 'text-slate-400' : 'text-green-300'"
-          >
-            {{ seatName(entry.seat) }}: {{ historyLabel(entry) }}
-          </div>
-        </div>
-
-        <!-- Ask Partner + Pass -->
-        <div class="flex gap-2">
-          <button
-            v-if="!isForced"
-            @click="askSupport"
-            :disabled="iAskedPartner"
-            class="flex-1 bg-blue-700 hover:bg-blue-600 disabled:opacity-40 text-white text-sm font-medium rounded-lg py-2 transition-colors"
-          >
-            {{ iAskedPartner ? 'Asked' : 'Ask Partner' }}
-          </button>
-          <button
-            @click="passBid"
-            :disabled="isForced"
-            class="flex-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-medium rounded-lg py-2 transition-colors"
-            :class="isForced ? 'text-slate-500' : 'text-slate-200'"
-          >
-            {{ isForced ? 'Must Bid' : 'Pass' }}
-          </button>
-        </div>
-
-        <!-- Support received display -->
-        <div v-if="supportSignals[partnerSeat] != null" class="text-center text-xs">
-          <span class="text-slate-400">{{ partnerName() }} says: </span>
-          <span
-            class="font-bold"
-            :class="supportSignals[partnerSeat] === 'Major' ? 'text-green-400'
-              : supportSignals[partnerSeat] === 'Minor' ? 'text-yellow-400'
-              : 'text-slate-400'"
-          >
-            {{ supportSignals[partnerSeat] }}
-          </span>
-        </div>
-
-        <!-- OR BID divider -->
-        <div class="text-center text-slate-500 text-xs">─── OR BID ───</div>
-
-        <!-- Suit selector -->
-        <div class="flex gap-2 justify-center">
-          <button
-            v-for="s in SUIT_KEYS"
-            :key="s"
-            @click="selectedSuit = s"
-            class="w-14 h-12 rounded-xl text-2xl font-bold transition-colors border-2"
-            :class="[
-              suitColor(s),
-              selectedSuit === s
-                ? 'bg-slate-600 border-white'
-                : 'bg-slate-800 border-slate-600 hover:border-slate-400'
-            ]"
-          >
-            {{ SUITS[s] }}
-          </button>
-        </div>
-
-        <!-- Bid number picker -->
-        <div class="flex items-center justify-center gap-4">
-          <button
-            @click="decreaseBid"
-            class="w-10 h-10 rounded-full bg-slate-700 hover:bg-slate-600 text-white font-bold text-xl flex items-center justify-center"
-          >‹</button>
-
-          <span class="text-2xl font-bold text-white w-20 text-center">
-            BID: {{ selectedBid ?? minBid }}
-          </span>
-
-          <button
-            @click="increaseBid"
-            class="w-10 h-10 rounded-full bg-slate-700 hover:bg-slate-600 text-white font-bold text-xl flex items-center justify-center"
-          >›</button>
-        </div>
-
-        <!-- Confirm -->
-        <button
-          @click="confirmBid"
-          :disabled="!selectedSuit"
-          class="w-full bg-green-600 hover:bg-green-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-lg py-3 transition-colors"
+      <!-- Bid history -->
+      <div class="flex flex-wrap gap-1 justify-center">
+        <div
+          v-for="(entry, i) in bidHistory"
+          :key="i"
+          class="text-xs bg-slate-700 rounded-full px-2 py-0.5"
+          :class="entry.action === 'pass' ? 'text-slate-400' : 'text-green-300'"
         >
-          CONFIRM BID
-          <span v-if="selectedSuit">
-            {{ SUITS[selectedSuit] }}{{ selectedBid ?? minBid }}
-          </span>
-        </button>
-
+          {{ seatName(entry.seat) }}: {{ historyLabel(entry) }}
+        </div>
       </div>
+
+      <!-- Ask Partner + Pass -->
+      <div class="flex gap-2">
+        <button
+          v-if="!isForced"
+          @click="askSupport"
+          :disabled="iAskedPartner"
+          class="flex-1 bg-blue-700 hover:bg-blue-600 disabled:opacity-40 text-white text-sm font-medium rounded-lg py-2 transition-colors"
+        >
+          {{ iAskedPartner ? 'Asked' : 'Ask Partner' }}
+        </button>
+        <button
+          @click="passBid"
+          :disabled="isForced"
+          class="flex-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-medium rounded-lg py-2 transition-colors"
+          :class="isForced ? 'text-slate-500' : 'text-slate-200'"
+        >
+          {{ isForced ? 'Must Bid' : 'Pass' }}
+        </button>
+      </div>
+
+      <!-- Support received display -->
+      <div v-if="supportSignals[partnerSeat] != null" class="text-center text-xs">
+        <span class="text-slate-400">{{ partnerName() }} says: </span>
+        <span
+          class="font-bold"
+          :class="supportSignals[partnerSeat] === 'Full' ? 'text-blue-400'
+            : supportSignals[partnerSeat] === 'Major' ? 'text-green-400'
+            : supportSignals[partnerSeat] === 'Minor' ? 'text-yellow-400'
+            : 'text-slate-400'"
+        >
+          {{ supportSignals[partnerSeat] }}
+        </span>
+      </div>
+
+      <!-- OR BID divider -->
+      <div class="flex items-center gap-3">
+        <div class="flex-1 h-px bg-slate-600"></div>
+        <span class="text-slate-500 text-xs uppercase tracking-wider">or bid</span>
+        <div class="flex-1 h-px bg-slate-600"></div>
+      </div>
+
+      <!-- Suit selector -->
+      <div class="flex gap-2 justify-center">
+        <button
+          v-for="s in SUIT_KEYS"
+          :key="s"
+          @click="selectedSuit = s"
+          class="w-14 h-12 rounded-xl text-2xl font-bold transition-colors border-2"
+          :class="[
+            suitColor(s),
+            selectedSuit === s
+              ? 'bg-slate-600 border-white'
+              : 'bg-slate-800 border-slate-600 hover:border-slate-400'
+          ]"
+        >
+          {{ SUITS[s] }}
+        </button>
+      </div>
+
+      <!-- Bid number picker -->
+      <div class="flex items-center justify-center gap-4">
+        <button
+          @click="decreaseBid"
+          class="w-10 h-10 rounded-full bg-slate-700 hover:bg-slate-600 text-white font-bold text-xl flex items-center justify-center"
+        >&#x2039;</button>
+
+        <span class="text-2xl font-bold text-white w-20 text-center">
+          BID: {{ selectedBid ?? minBid }}
+        </span>
+
+        <button
+          @click="increaseBid"
+          class="w-10 h-10 rounded-full bg-slate-700 hover:bg-slate-600 text-white font-bold text-xl flex items-center justify-center"
+        >&#x203A;</button>
+      </div>
+
+      <!-- Confirm -->
+      <button
+        @click="confirmBid"
+        :disabled="!selectedSuit"
+        class="w-full bg-green-600 hover:bg-green-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-lg py-3 transition-colors"
+      >
+        CONFIRM BID
+        <span v-if="selectedSuit">
+          {{ SUITS[selectedSuit] }}{{ selectedBid ?? minBid }}
+        </span>
+      </button>
     </div>
   </div>
 </template>

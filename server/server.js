@@ -86,9 +86,12 @@ async function runBotTurns(roomCode) {
       if (game.isGameOver() !== null) break;
 
       if (game.phase === 'scoring') {
-        const baseDelay = game.tramResult ? 8000 : 5000;
-        const scoringDelay = process.env.FAST_TEST ? 50 : baseDelay;
-        await new Promise(r => setTimeout(r, scoringDelay));
+        // Wait for human to click next_round (30s safety timeout)
+        const maxWait = process.env.FAST_TEST ? 50 : 30000;
+        await new Promise(r => {
+          room._scoringResolve = r;
+          setTimeout(() => { room._scoringResolve = null; r(); }, maxWait);
+        });
         game.round++;
         game.startRound();
         broadcastGameState(roomCode);
@@ -120,8 +123,18 @@ async function runBotTurns(roomCode) {
       const bot = room.bots[activeSeat];
       if (!bot) break;
 
-      await bot.decideAction();
+      const prevPhase = game.phase;
+      const prevActive = game.activeSeat;
+      const prevTrickLen = game.currentTrick.length;
+
+      const action = await bot.decideAction();
       broadcastGameState(roomCode);
+
+      // Safety: if bot didn't change any game state, break to avoid infinite loop
+      if (!action && game.phase === prevPhase && game.activeSeat === prevActive && game.currentTrick.length === prevTrickLen) {
+        console.error(`Bot ${activeSeat} stuck: phase=${game.phase}, active=${game.activeSeat}, trick=${game.currentTrick.length}`);
+        break;
+      }
 
       // If trick just completed (4 cards), pause so clients see all cards, then resolve
       if (game.currentTrick.length === 4 && game.activeSeat === null) {
@@ -440,6 +453,26 @@ io.on('connection', (socket) => {
   });
 
   // -------------------------------------------------------------------------
+  // declare_dhaap
+  // -------------------------------------------------------------------------
+  socket.on('declare_dhaap', () => {
+    try {
+      const info = socketToRoom.get(socket.id);
+      if (!info) return socket.emit('error', { message: 'Not in a room' });
+      const room = rooms.get(info.roomCode);
+      if (!room || !room.game) return socket.emit('error', { message: 'No game in progress' });
+
+      const result = room.game.declareDhaap(info.seat);
+      if (!result.ok) return socket.emit('error', { message: result.error });
+
+      broadcastGameState(info.roomCode);
+    } catch (err) {
+      console.error('declare_dhaap error:', err);
+      socket.emit('error', { message: err.message });
+    }
+  });
+
+  // -------------------------------------------------------------------------
   // call_tram
   // -------------------------------------------------------------------------
   socket.on('call_tram', async ({ cards }) => {
@@ -457,6 +490,40 @@ io.on('connection', (socket) => {
     } catch (err) {
       console.error('call_tram error:', err);
       socket.emit('error', { message: err.message });
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // give_up — concede remaining tricks to opponent
+  // -------------------------------------------------------------------------
+  socket.on('give_up', async () => {
+    try {
+      const info = socketToRoom.get(socket.id);
+      if (!info) return socket.emit('error', { message: 'Not in a room' });
+      const room = rooms.get(info.roomCode);
+      if (!room || !room.game) return socket.emit('error', { message: 'No game in progress' });
+
+      const result = room.game.giveUp(info.seat);
+      if (!result.ok) return socket.emit('error', { message: result.error });
+
+      broadcastGameState(info.roomCode);
+      await runBotTurns(info.roomCode);
+    } catch (err) {
+      console.error('give_up error:', err);
+      socket.emit('error', { message: err.message });
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // next_round — skip scoring delay
+  // -------------------------------------------------------------------------
+  socket.on('next_round', () => {
+    const info = socketToRoom.get(socket.id);
+    if (!info) return;
+    const room = rooms.get(info.roomCode);
+    if (room && room._scoringResolve) {
+      room._scoringResolve();
+      room._scoringResolve = null;
     }
   });
 
@@ -487,7 +554,21 @@ io.on('connection', (socket) => {
         }
         createBotForSeat(info.seat, room);
         broadcastGameState(info.roomCode);
-        await runBotTurns(info.roomCode);
+
+        // If all 4 players are now bots, drop the game after 10 seconds
+        const allBots = room.seats.every(s => s?.isBot);
+        if (allBots) {
+          console.log(`Room ${info.roomCode}: all players are bots, dropping in 10s`);
+          setTimeout(() => {
+            const r = rooms.get(info.roomCode);
+            if (r && r.seats.every(s => s?.isBot)) {
+              console.log(`Room ${info.roomCode}: dropped (all bots)`);
+              rooms.delete(info.roomCode);
+            }
+          }, 10000);
+        } else {
+          await runBotTurns(info.roomCode);
+        }
       } else {
         broadcastRoomState(info.roomCode);
       }

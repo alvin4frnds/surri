@@ -106,14 +106,14 @@ function validateTram(claimedCards, claimerSeat, hands, trump, bid, tricks) {
   for (const card of claimedCards) {
     // Remove card from claimer's hand
     const idx = remainingHands[claimerSeat].indexOf(card);
-    if (idx === -1) return { valid: false }; // card not in hand
+    if (idx === -1) return { valid: false, reason: 'Card not in hand' };
     remainingHands[claimerSeat].splice(idx, 1);
 
     const ledSuit = cardSuit(card);
     const ledRank = cardRank(card);
     const isTrump = ledSuit === trump;
 
-    // Check each opponent
+    // Check each opponent and simulate them playing a card
     for (const opp of opponents) {
       const oppHand = remainingHands[opp];
       if (oppHand.length === 0) continue;
@@ -122,30 +122,23 @@ function validateTram(claimedCards, claimerSeat, hands, trump, bid, tricks) {
       if (suitCards.length > 0) {
         // Opponent must follow suit — can they beat the card?
         const bestInSuit = suitCards.reduce((best, c) => cardRank(c) > cardRank(best) ? c : best);
-        if (cardRank(bestInSuit) > ledRank && (!isTrump || ledSuit === trump)) {
-          // If both are trump, compare ranks; if led is trump, bestInSuit is also trump
-          // If led is non-trump, we only care about non-trump beats for that suit
-          if (ledSuit === cardSuit(bestInSuit)) {
-            // Same suit comparison
-            if (cardRank(bestInSuit) > ledRank) return { valid: false };
-          }
+        if (cardRank(bestInSuit) > ledRank) {
+          return { valid: false, reason: `Opponent at seat ${opp} can beat ${card} in suit` };
         }
-        // More precise: can the best card of that suit beat the led card?
-        if (isTrump) {
-          // Led is trump; opponent follows with trump; compare ranks
-          if (cardRank(bestInSuit) > ledRank) return { valid: false };
-        } else {
-          // Led is not trump; opponent follows suit (non-trump); can they beat?
-          if (cardRank(bestInSuit) > ledRank) return { valid: false };
-        }
+        // Opponent follows but can't beat — remove their lowest card in suit
+        // (worst case: conserves their higher cards for later)
+        const lowestInSuit = suitCards.reduce((low, c) => cardRank(c) < cardRank(low) ? c : low);
+        const removeIdx = oppHand.indexOf(lowestInSuit);
+        if (removeIdx !== -1) oppHand.splice(removeIdx, 1);
       } else {
         // Opponent is void in led suit — can they trump?
         if (!isTrump) {
-          const trumpCards = oppHand.filter(c => cardSuit(c) === trump);
-          if (trumpCards.length > 0) return { valid: false };
-        } else {
-          // Led is trump, opponent is void in trump — can't beat it
+          const oppTrumps = oppHand.filter(c => cardSuit(c) === trump);
+          if (oppTrumps.length > 0) {
+            return { valid: false, reason: `Opponent at seat ${opp} can trump ${card}` };
+          }
         }
+        // Led is trump and opponent has no trump — can't beat it
       }
     }
   }
@@ -192,6 +185,7 @@ class SurriGame {
     this._tricksPlayed = 0; // total tricks completed this round
     this.playedCards = []; // all cards played this round (for AI tracking)
     this.voidSuits = { 0: new Set(), 1: new Set(), 2: new Set(), 3: new Set() }; // suits each seat has shown void in
+    this.dhaaps = {}; // { seat: true } — seats that declared Dhaap this trick
   }
 
   // -------------------------------------------------------------------------
@@ -221,6 +215,7 @@ class SurriGame {
     this._tricksPlayed = 0;
     this.playedCards = [];
     this.voidSuits = { 0: new Set(), 1: new Set(), 2: new Set(), 3: new Set() };
+    this.dhaaps = {};
 
     // Deal
     this._deal();
@@ -348,7 +343,7 @@ class SurriGame {
     if (this.pendingSupportRequest.asker !== partner) {
       return { ok: false, error: 'Not the partner being asked for support' };
     }
-    if (!['Major', 'Minor', 'Pass'].includes(signal)) {
+    if (!['Full', 'Major', 'Minor', 'Pass'].includes(signal)) {
       return { ok: false, error: 'Invalid support signal' };
     }
 
@@ -469,6 +464,14 @@ class SurriGame {
     }
   }
 
+  declareDhaap(seat) {
+    if (this.phase !== 'playing') return { ok: false, error: 'Not in playing phase' };
+    if (this.activeSeat !== seat) return { ok: false, error: 'Not your turn' };
+    if (this.dhaaps[seat]) return { ok: false, error: 'Already declared Dhaap this trick' };
+    this.dhaaps[seat] = true;
+    return { ok: true };
+  }
+
   _advancePlaySeat() {
     const lastPlayed = this.currentTrick[this.currentTrick.length - 1].seat;
     let next = (lastPlayed + 1) % 4;
@@ -503,6 +506,7 @@ class SurriGame {
     }
     this.lastTrick = { winner, cards: [...this.currentTrick] };
     this.currentTrick = [];
+    this.dhaaps = {};
 
     // Check for early round end
     const bidTeamTricks = this._getBidTeamTricks();
@@ -547,6 +551,14 @@ class SurriGame {
       return { ok: false, error: 'Not in playing phase' };
     }
 
+    // Only the player who leads the next trick can call TRAM
+    if (this.currentTrick.length > 0) {
+      return { ok: false, error: 'Cannot call TRAM mid-trick' };
+    }
+    if (this.activeSeat !== seat) {
+      return { ok: false, error: 'Only the trick leader can call TRAM' };
+    }
+
     const callerTeam = seat % 2;
     const result = validateTram(cards, seat, this.hands, this.trump, this.bid, this.tricks);
 
@@ -580,6 +592,29 @@ class SurriGame {
     };
 
     // Transition to scoring (which shows TRAM result + round summary)
+    return this._endRound();
+  }
+
+  giveUp(seat) {
+    if (this.phase !== 'playing') {
+      return { ok: false, error: 'Not in playing phase' };
+    }
+
+    // Award all remaining tricks to the opponent team
+    const giverTeam = seat % 2;
+    const totalPlayed = this.tricks[0] + this.tricks[1] + this.tricks[2] + this.tricks[3];
+    const remaining = 13 - totalPlayed;
+    if (remaining <= 0) {
+      return { ok: false, error: 'No tricks remaining' };
+    }
+
+    // Give remaining tricks to a seat on the opponent team
+    const oppSeat = giverTeam === 0 ? 1 : 0;
+    this.tricks[oppSeat] += remaining;
+
+    // Clear current trick if in progress
+    this.currentTrick = [];
+
     return this._endRound();
   }
 
@@ -773,6 +808,7 @@ class SurriGame {
       activeSeat: this.activeSeat,
       tricks: { ...this.tricks },
       currentTrick: [...this.currentTrick],
+      dhaaps: { ...this.dhaaps },
       lastTrick: this.lastTrick,
 
       myHand: [...(this.hands[seat] || [])],

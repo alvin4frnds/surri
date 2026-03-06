@@ -40,7 +40,8 @@ When partner asks for support, the bot evaluates its hand and responds:
 
 | Condition | Response |
 |---|---|
-| `estimated_tricks >= 4` (with partner's likely trump) | **Major** |
+| `estimated_tricks >= 4` (with partner's likely trump) | **Full** |
+| `estimated_tricks >= 3` | **Major** |
 | `estimated_tricks >= 1` | **Minor** |
 | `estimated_tricks < 1` | **Pass** |
 
