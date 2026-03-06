@@ -212,7 +212,8 @@ class AIPlayer {
     const estimate = evaluateHand(game.hands[seat], suit);
 
     let signal;
-    if (estimate >= 4) signal = 'Major';
+    if (estimate >= 4) signal = 'Full';
+    else if (estimate >= 3) signal = 'Major';
     else if (estimate >= 1) signal = 'Minor';
     else signal = 'Pass';
 
@@ -245,10 +246,13 @@ class AIPlayer {
     if (estimate >= 10) {
       shouldBid = true;
       bidAmount = Math.min(Math.round(estimate), 13);
-    } else if (estimate >= 9 && partnerSignal === 'Minor') {
+    } else if (estimate >= 9 && (partnerSignal === 'Minor' || partnerSignal === 'Major' || partnerSignal === 'Full')) {
       shouldBid = true;
       bidAmount = 10;
-    } else if (estimate >= 8 && partnerSignal === 'Major') {
+    } else if (estimate >= 8 && (partnerSignal === 'Major' || partnerSignal === 'Full')) {
+      shouldBid = true;
+      bidAmount = 10;
+    } else if (estimate >= 7 && partnerSignal === 'Full') {
       shouldBid = true;
       bidAmount = 10;
     } else if (estimate >= 7 && partnerSignal === 'Major') {
@@ -274,12 +278,6 @@ class AIPlayer {
     const hand = game.hands[seat];
     const { suit, estimate } = bestSuit(hand);
     const partnerSeat = (seat + 2) % 4;
-
-    // Ask for support if not already done
-    if (!game.supportAsked[seat]) {
-      game.askSupport(seat);
-      return { action: 'ask_support' };
-    }
 
     const bidAmount = Math.max(8, Math.min(Math.round(estimate), 13));
     game.placeBid(seat, bidAmount, suit);
@@ -329,16 +327,27 @@ class AIPlayer {
     const hand = game.hands[seat];
     const playable = getPlayableCards(hand, game.currentTrick);
 
-    // Check TRAM opportunity first
-    const tramCards = this._getTramCards(seat);
-    if (tramCards) {
-      game.callTram(seat, tramCards);
-      return { action: 'call_tram', cards: tramCards };
-    }
-
     let card;
 
     if (game.currentTrick.length === 0) {
+      // Check TRAM opportunity when leading
+      const tramCards = this._getTramCards(seat);
+      if (tramCards) {
+        game.callTram(seat, tramCards);
+        return { action: 'call_tram', cards: tramCards };
+      }
+      // Consider declaring Dhaap when leading a strong suit
+      if (!game.dhaaps[seat]) {
+        const trump = game.trump;
+        const leadCard = this._decideLeadCard(seat, playable);
+        if (leadCard && Math.random() < 0.3) {
+          const leadSuit = cardSuit(leadCard);
+          const suitCount = hand.filter(c => cardSuit(c) === leadSuit).length;
+          if ((leadSuit === trump && suitCount >= 3) || (leadSuit !== trump && suitCount >= 4)) {
+            game.declareDhaap(seat);
+          }
+        }
+      }
       // Leading
       card = this._decideLeadCard(seat, playable);
     } else {
@@ -388,15 +397,14 @@ class AIPlayer {
     const playable = getPlayableCards(hand, game.currentTrick);
     if (playable.length === 0) return null;
 
-    // Check TRAM with both hands
-    const tramCards = this._getTramCardsBidder();
-    if (tramCards) {
-      game.callTram(seat, tramCards);
-      return { action: 'call_tram', cards: tramCards };
-    }
-
     let card;
     if (game.currentTrick.length === 0) {
+      // Check TRAM with both hands when leading
+      const tramCards = this._getTramCardsBidder();
+      if (tramCards) {
+        game.callTram(seat, tramCards);
+        return { action: 'call_tram', cards: tramCards };
+      }
       card = this._decideLeadCard(playFromSeat, playable);
     } else {
       const ledSuit = cardSuit(game.currentTrick[0].card);
@@ -466,10 +474,17 @@ class AIPlayer {
         if (shortCards.length > 0) return shortCards[0];
       }
 
-      // 4. Lead high trump
+      // 4. Lead high trump (but don't lead K if A is still out and we don't have it)
       const trumpCards = playable.filter(c => cardSuit(c) === trump);
-      if (trumpCards.some(c => c.startsWith('A') || c.startsWith('K'))) {
-        return highestCard(trumpCards);
+      if (trumpCards.length > 0) {
+        const hasAce = trumpCards.some(c => c.startsWith('A'));
+        const acePlayedAlready = game.playedCards.includes('A' + trump);
+        if (trumpCards.some(c => c.startsWith('A'))) {
+          return highestCard(trumpCards); // lead ace
+        }
+        if (trumpCards.some(c => c.startsWith('K')) && (hasAce || acePlayedAlready)) {
+          return highestCard(trumpCards); // safe to lead king
+        }
       }
     }
 
