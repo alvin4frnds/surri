@@ -17,29 +17,29 @@ const props = defineProps({
   teamTricksWon: { type: Number, default: 0 },
   teamTricksNeeded: { type: Number, default: 0 },
   isMyTeam: { type: Boolean, default: false },
+  showTrickCircles: { type: Boolean, default: true },
+  showScoreBadge: { type: Boolean, default: false },
 })
 
-// Bot chat bubble with auto-dismiss
+// Bot chat bubble — persist until value changes to null/different
 const showBubble = ref(false)
-let bubbleTimer = null
 
-watch(() => props.bidAction, (val) => {
+watch(() => props.bidAction, (val, oldVal) => {
   if (val && !props.isSouth) {
     showBubble.value = true
-    clearTimeout(bubbleTimer)
-    bubbleTimer = setTimeout(() => { showBubble.value = false }, 3000)
+  } else if (!val) {
+    showBubble.value = false
   }
 })
 
 // Also show support signals as bubbles for non-south
 const showSupportBubble = ref(false)
-let supportTimer = null
 
-watch(() => props.supportSignal, (val) => {
+watch(() => props.supportSignal, (val, oldVal) => {
   if (val && !props.isSouth) {
     showSupportBubble.value = true
-    clearTimeout(supportTimer)
-    supportTimer = setTimeout(() => { showSupportBubble.value = false }, 3000)
+  } else if (!val) {
+    showSupportBubble.value = false
   }
 })
 
@@ -111,13 +111,13 @@ const isVerticalStack = props.position === 'west' || props.position === 'east'
         <span v-if="isDealer" class="text-yellow-400 text-xs">👑</span>
       </div>
 
-      <!-- Dealer score (shown only on dealer) -->
-      <div v-if="isDealer" class="text-xs text-yellow-400 font-bold mt-0.5">
+      <!-- Dealer score (shown on dealer OR when showScoreBadge is set) -->
+      <div v-if="isDealer || showScoreBadge" class="text-xs text-yellow-400 font-bold mt-0.5">
         Score: {{ dealerScore }}
       </div>
 
       <!-- Trick circles -->
-      <div v-if="teamTricksNeeded > 0" class="flex gap-0.5 mt-1 flex-wrap justify-center max-w-[80px]">
+      <div v-if="showTrickCircles && teamTricksNeeded > 0" class="flex gap-0.5 mt-1 flex-wrap justify-center max-w-[80px]">
         <div
           v-for="i in teamTricksNeeded"
           :key="i"

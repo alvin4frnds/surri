@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue'
+import { ref } from 'vue'
 
 const props = defineProps({
   lastRoundResult: { type: Object, required: true },
@@ -11,16 +11,7 @@ const emit = defineEmits(['continue'])
 
 const SUITS = { S: '♠', H: '♥', D: '♦', C: '♣' }
 
-let timer = null
-
-onMounted(() => {
-  const delay = props.tramResult ? 8000 : 5000
-  timer = setTimeout(() => emit('continue'), delay)
-})
-
-onUnmounted(() => {
-  if (timer) clearTimeout(timer)
-})
+// No auto-dismiss — wait for user to click NEXT ROUND
 
 function seatName(seat) {
   if (seat == null) return '?'

@@ -86,12 +86,11 @@ async function runBotTurns(roomCode) {
       if (game.isGameOver() !== null) break;
 
       if (game.phase === 'scoring') {
-        const baseDelay = game.tramResult ? 8000 : 5000;
-        const scoringDelay = process.env.FAST_TEST ? 50 : baseDelay;
-        // Allow early advance via next_round event
+        // Wait for human to click next_round (30s safety timeout)
+        const maxWait = process.env.FAST_TEST ? 50 : 30000;
         await new Promise(r => {
           room._scoringResolve = r;
-          setTimeout(() => { room._scoringResolve = null; r(); }, scoringDelay);
+          setTimeout(() => { room._scoringResolve = null; r(); }, maxWait);
         });
         game.round++;
         game.startRound();

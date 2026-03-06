@@ -17,14 +17,20 @@ const emit = defineEmits(['game-action', 'leave'])
 
 const showTram = ref(false)
 const showRoundSummary = ref(false)
+const showDealing = ref(false)
 
-// Track if the scoring phase overlay was dismissed
+// Track phase transitions
 import { watch } from 'vue'
 watch(() => props.gameState?.phase, (newPhase, oldPhase) => {
   if (newPhase === 'scoring') {
     showRoundSummary.value = true
   } else if (newPhase !== 'scoring') {
     showRoundSummary.value = false
+  }
+  // Show dealing animation when entering bidding from dealing/scoring
+  if (newPhase === 'bidding' || newPhase === 'bidding_forced') {
+    showDealing.value = true
+    setTimeout(() => { showDealing.value = false }, 1200)
   }
 })
 
@@ -169,6 +175,26 @@ function onPlayAgain() {
   onGameAction('start_game', {})
 }
 
+const showLeaveConfirm = ref(false)
+
+// Check if I'm the only human player
+const isOnlyHuman = computed(() => {
+  return seats.value.filter(s => s && !s.isBot && s.isConnected).length <= 1
+})
+
+function onLeaveClick() {
+  if (isOnlyHuman.value) {
+    showLeaveConfirm.value = true
+  } else {
+    emit('leave')
+  }
+}
+
+function onLeaveConfirmed() {
+  showLeaveConfirm.value = false
+  emit('leave')
+}
+
 function onLeave() {
   emit('leave')
 }
@@ -176,6 +202,16 @@ function onLeave() {
 
 <template>
   <div class="h-full w-full relative overflow-hidden" style="background: radial-gradient(ellipse at 50% 40%, #162d4a 0%, #0f1b2d 60%, #0a1220 100%)">
+    <!-- Dealing animation -->
+    <Transition name="deal-fade">
+      <div v-if="showDealing" class="absolute inset-0 z-[25] flex items-center justify-center pointer-events-none">
+        <div class="deal-cards-container">
+          <div v-for="i in 8" :key="i" class="deal-card" :style="`--deal-index: ${i}; --deal-angle: ${(i - 1) * 45}deg`" />
+        </div>
+        <span class="text-white/80 text-sm font-medium uppercase tracking-widest">Dealing...</span>
+      </div>
+    </Transition>
+
     <!-- Trump watermark -->
     <div
       v-if="trump"
@@ -188,6 +224,14 @@ function onLeave() {
         {{ TRUMP_SYMBOLS[trump] }}
       </span>
     </div>
+
+    <!-- Leave button -->
+    <button
+      @click="onLeaveClick"
+      class="absolute top-2 right-2 z-[22] bg-slate-800/80 hover:bg-red-700 text-slate-400 hover:text-white text-xs rounded-lg px-2 py-1 transition-colors"
+    >
+      Leave
+    </button>
 
     <!-- North player -->
     <div class="absolute top-2 left-1/2 -translate-x-1/2 z-10">
@@ -207,6 +251,7 @@ function onLeave() {
         :teamTricksWon="teamTricksWon(absSeat('north'))"
         :teamTricksNeeded="teamTarget(absSeat('north'))"
         :isMyTeam="isMyTeam(absSeat('north'))"
+        :showTrickCircles="true"
       />
     </div>
 
@@ -244,6 +289,7 @@ function onLeave() {
         :teamTricksWon="teamTricksWon(absSeat('west'))"
         :teamTricksNeeded="teamTarget(absSeat('west'))"
         :isMyTeam="isMyTeam(absSeat('west'))"
+        :showTrickCircles="true"
       />
     </div>
 
@@ -265,6 +311,8 @@ function onLeave() {
         :teamTricksWon="teamTricksWon(absSeat('east'))"
         :teamTricksNeeded="teamTarget(absSeat('east'))"
         :isMyTeam="isMyTeam(absSeat('east'))"
+        :showTrickCircles="false"
+        :showScoreBadge="true"
       />
     </div>
 
@@ -276,14 +324,14 @@ function onLeave() {
       />
     </div>
 
-    <!-- Score badges -->
-    <div v-if="bid != null && isPlaying" class="absolute top-[55%] left-2 z-10">
+    <!-- Score badges (visible whenever bid exists) -->
+    <div v-if="bid != null" class="absolute top-3 left-3 z-[11]">
       <div class="bg-blue-600 border border-blue-400/30 rounded-xl px-2.5 py-1 text-center shadow-lg">
         <span class="text-white font-black text-xl">{{ myTeamTricks }}</span>
         <span class="text-blue-200 text-sm"> / {{ myTeamTarget }}</span>
       </div>
     </div>
-    <div v-if="bid != null && isPlaying" class="absolute top-[55%] right-2 z-10">
+    <div v-if="bid != null" class="absolute top-[55%] right-2 z-10">
       <div class="bg-red-600 border border-red-400/30 rounded-xl px-2.5 py-1 text-center shadow-lg">
         <span class="text-white font-black text-xl">{{ oppTeamTricks }}</span>
         <span class="text-red-200 text-sm"> / {{ oppTeamTarget }}</span>
@@ -308,6 +356,7 @@ function onLeave() {
         :teamTricksWon="teamTricksWon(mySeat)"
         :teamTricksNeeded="teamTarget(mySeat)"
         :isMyTeam="true"
+        :showTrickCircles="false"
       />
     </div>
 
@@ -387,5 +436,58 @@ function onLeave() {
       @play-again="onPlayAgain"
       @leave="onLeave"
     />
+
+    <!-- Leave confirmation dialog -->
+    <div v-if="showLeaveConfirm" class="absolute inset-0 bg-black/70 z-[30] flex items-center justify-center">
+      <div class="bg-slate-800 border border-slate-600 rounded-2xl p-5 max-w-[280px] text-center space-y-4">
+        <div class="text-white text-sm font-medium">You are the only human player. Leaving will end the game.</div>
+        <div class="flex gap-3">
+          <button
+            @click="showLeaveConfirm = false"
+            class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium rounded-lg py-2 transition-colors"
+          >
+            Stay
+          </button>
+          <button
+            @click="onLeaveConfirmed"
+            class="flex-1 bg-red-600 hover:bg-red-500 text-white text-sm font-medium rounded-lg py-2 transition-colors"
+          >
+            Leave
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
+
+<style scoped>
+.deal-fade-enter-active { transition: opacity 0.2s; }
+.deal-fade-leave-active { transition: opacity 0.4s; }
+.deal-fade-enter-from, .deal-fade-leave-to { opacity: 0; }
+
+.deal-cards-container {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+}
+.deal-card {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 28px;
+  border-radius: 3px;
+  background: linear-gradient(145deg, #1a3a5c, #0d2440);
+  border: 1.5px solid #c9a84c;
+  animation: dealFly 0.8s ease-out forwards;
+  animation-delay: calc(var(--deal-index) * 0.08s);
+  opacity: 0;
+}
+@keyframes dealFly {
+  0% { transform: translate(-50%, -50%) rotate(0deg) scale(1); opacity: 1; }
+  100% { transform: translate(
+    calc(-50% + cos(var(--deal-angle)) * 120px),
+    calc(-50% + sin(var(--deal-angle)) * 120px)
+  ) rotate(360deg) scale(0.6); opacity: 0; }
+}
+</style>
