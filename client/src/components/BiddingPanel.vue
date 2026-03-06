@@ -216,11 +216,12 @@ watch(phase, (newPhase) => {
         <div class="text-slate-300 text-sm text-center mb-3">{{ partnerName() }} asks for your support:</div>
         <div class="flex gap-2 justify-center">
           <button
-            v-for="signal in ['Major', 'Minor', 'Pass']"
+            v-for="signal in ['Full', 'Major', 'Minor', 'Pass']"
             :key="signal"
             @click="giveSupport(signal)"
             class="flex-1 py-2 rounded-lg text-sm font-medium transition-colors"
-            :class="signal === 'Major' ? 'bg-green-700 hover:bg-green-600 text-white'
+            :class="signal === 'Full' ? 'bg-blue-700 hover:bg-blue-600 text-white'
+              : signal === 'Major' ? 'bg-green-700 hover:bg-green-600 text-white'
               : signal === 'Minor' ? 'bg-yellow-700 hover:bg-yellow-600 text-white'
               : 'bg-slate-700 hover:bg-slate-600 text-slate-300'"
           >
@@ -235,7 +236,7 @@ watch(phase, (newPhase) => {
       <div class="text-slate-300 text-sm text-center mb-3">{{ partnerName() }} asks for your support:</div>
       <div class="flex gap-2 justify-center">
         <button
-          v-for="signal in ['Major', 'Minor', 'Pass']"
+          v-for="signal in ['Full', 'Major', 'Minor', 'Pass']"
           :key="signal"
           @click="giveSupport(signal)"
           class="flex-1 py-2 rounded-lg text-sm font-medium transition-colors"
@@ -267,6 +268,7 @@ watch(phase, (newPhase) => {
       <!-- Ask Partner + Pass -->
       <div class="flex gap-2">
         <button
+          v-if="!isForced"
           @click="askSupport"
           :disabled="iAskedPartner"
           class="flex-1 bg-blue-700 hover:bg-blue-600 disabled:opacity-40 text-white text-sm font-medium rounded-lg py-2 transition-colors"
@@ -288,7 +290,8 @@ watch(phase, (newPhase) => {
         <span class="text-slate-400">{{ partnerName() }} says: </span>
         <span
           class="font-bold"
-          :class="supportSignals[partnerSeat] === 'Major' ? 'text-green-400'
+          :class="supportSignals[partnerSeat] === 'Full' ? 'text-blue-400'
+            : supportSignals[partnerSeat] === 'Major' ? 'text-green-400'
             : supportSignals[partnerSeat] === 'Minor' ? 'text-yellow-400'
             : 'text-slate-400'"
         >

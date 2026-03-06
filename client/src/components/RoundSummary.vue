@@ -5,6 +5,7 @@ const props = defineProps({
   lastRoundResult: { type: Object, required: true },
   seats: { type: Array, default: () => [] },
   tramResult: { type: Object, default: null },
+  mySeat: { type: Number, default: 0 },
 })
 
 const emit = defineEmits(['continue'])
@@ -85,6 +86,17 @@ function formatCard(card) {
   const rank = card.slice(0, -1)
   return `${rank}${SUITS[suit] || suit}`
 }
+
+// Did my team win this round?
+function myTeamWon() {
+  const r = props.lastRoundResult
+  if (!r) return false
+  const myTeam = props.mySeat % 2
+  const bidderTeam = r.biddingSeat % 2
+  const iAmBidder = myTeam === bidderTeam
+  // If my team bid and made it, I won. If opponent bid and failed, I won.
+  return iAmBidder ? r.made : !r.made
+}
 </script>
 
 <template>
@@ -97,9 +109,12 @@ function formatCard(card) {
       @click.stop
     >
       <!-- Header -->
-      <div class="bg-slate-700 px-4 py-3 text-center font-bold text-slate-100">
+      <div
+        class="px-4 py-3 text-center font-bold"
+        :class="isBid13() ? 'bg-slate-700 text-slate-100' : myTeamWon() ? 'bg-green-900/60 text-green-200' : 'bg-red-900/60 text-red-200'"
+      >
         <template v-if="isBid13()">⚡ BID OF 13</template>
-        <template v-else>ROUND SUMMARY</template>
+        <template v-else>{{ myTeamWon() ? 'ROUND WON' : 'ROUND LOST' }}</template>
       </div>
 
       <div class="p-4 space-y-4">
@@ -166,10 +181,13 @@ function formatCard(card) {
         <div class="text-center">
           <span
             class="text-xl font-bold"
-            :class="lastRoundResult.made ? 'text-green-400' : 'text-red-400'"
+            :class="myTeamWon() ? 'text-green-400' : 'text-red-400'"
           >
-            {{ lastRoundResult.made ? '✓ BID MADE' : '✗ BID FAILED' }}
+            {{ myTeamWon() ? '✓ YOU WON' : '✗ YOU LOST' }}
           </span>
+          <div class="text-xs text-slate-400 mt-0.5">
+            {{ lastRoundResult.made ? 'Bid was made' : 'Bid failed' }}
+          </div>
         </div>
 
         <!-- Score change (non-bid13) -->

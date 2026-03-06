@@ -34,6 +34,7 @@ function cardImageUrl() {
 
 function sizeClass() {
   if (props.size === 'sm') return 'w-10 h-14'
+  if (props.size === 'xl') return 'w-20 h-28'
   if (props.size === 'lg') return 'w-16 h-24'
   if (props.small) return 'w-10 h-14'
   return 'w-14 h-20' // md / default
