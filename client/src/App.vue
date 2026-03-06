@@ -12,6 +12,26 @@ const mySeat = ref(null)
 const myRoomCode = ref(null)
 const view = ref('lobby')
 const error = ref(null)
+const disconnected = ref(false)
+
+socket.on('disconnect', () => {
+  disconnected.value = true
+})
+
+socket.on('connect', () => {
+  if (disconnected.value) {
+    disconnected.value = false
+    // Server restart wipes in-memory state — return to lobby
+    if (view.value !== 'lobby') {
+      roomState.value = null
+      gameState.value = null
+      mySeat.value = null
+      myRoomCode.value = null
+      view.value = 'lobby'
+      error.value = 'Server was restarted. Please rejoin.'
+    }
+  }
+})
 
 socket.on('room_created', ({ code, seat, state }) => {
   myRoomCode.value = code
@@ -47,8 +67,12 @@ socket.on('error', ({ message }) => {
 const issueToast = ref(null)
 socket.on('issue_reported', ({ issueNumber, url }) => {
   issueToast.value = { issueNumber, url }
-  setTimeout(() => { issueToast.value = null }, 5000)
+  setTimeout(() => { issueToast.value = null }, 8000)
 })
+
+function dismissIssueToast() {
+  issueToast.value = null
+}
 
 function onCreateRoom({ name, botCount }) {
   error.value = null
@@ -104,10 +128,31 @@ function onLeave() {
     </div>
     <HelpOverlay />
 
-    <!-- Issue reported toast -->
+    <!-- Maintenance overlay on disconnect -->
     <Transition name="toast-fade">
-      <div v-if="issueToast" class="fixed bottom-16 left-1/2 -translate-x-1/2 z-[60] bg-green-700 text-white text-sm rounded-lg px-4 py-2 shadow-lg">
-        Issue #{{ issueToast.issueNumber }} created
+      <div v-if="disconnected" class="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center">
+        <div class="bg-[#1e293b] rounded-xl p-6 mx-4 text-center max-w-xs shadow-2xl border border-slate-600">
+          <div class="text-3xl mb-3">&#9888;</div>
+          <h2 class="text-lg font-bold text-white mb-2">Server Maintenance</h2>
+          <p class="text-slate-300 text-sm">The server is undergoing maintenance. It will be back shortly.</p>
+          <div class="mt-4 flex justify-center">
+            <span class="inline-block w-5 h-5 border-2 border-slate-400 border-t-white rounded-full animate-spin"></span>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Issue submitted overlay -->
+    <Transition name="toast-fade">
+      <div v-if="issueToast" class="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center" @click="dismissIssueToast">
+        <div class="bg-[#1e293b] rounded-xl p-6 mx-4 text-center max-w-xs shadow-2xl border border-slate-600" @click.stop>
+          <div class="text-3xl mb-3">&#10004;</div>
+          <h2 class="text-lg font-bold text-white mb-2">Issue Submitted!</h2>
+          <p class="text-slate-300 text-sm mb-3">Thanks for letting us know! You can track it here:</p>
+          <a href="https://github.com/alvin4frnds/surri/issues" target="_blank" class="text-blue-400 hover:text-blue-300 text-sm underline">github.com/alvin4frnds/surri/issues</a>
+          <p class="text-slate-400 text-xs mt-3">We'll get to it as soon as we can!</p>
+          <button @click="dismissIssueToast" class="mt-4 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg px-6 py-2 transition-colors">Got it</button>
+        </div>
       </div>
     </Transition>
   </div>
