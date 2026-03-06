@@ -27,8 +27,8 @@ watch(() => props.gameState?.phase, (newPhase, oldPhase) => {
   } else if (newPhase !== 'scoring') {
     showRoundSummary.value = false
   }
-  // Show dealing animation when entering bidding from dealing/scoring
-  if (newPhase === 'bidding' || newPhase === 'bidding_forced') {
+  // Show dealing animation only at the start of a new round (not when transitioning between bidding sub-phases)
+  if ((newPhase === 'bidding' || newPhase === 'bidding_forced') && oldPhase !== 'bidding' && oldPhase !== 'bidding_forced') {
     showDealing.value = true
     setTimeout(() => { showDealing.value = false }, 1200)
   }
@@ -66,6 +66,7 @@ const supportSignals = computed(() => gs.value?.supportSignals ?? {})
 const bidHistory = computed(() => gs.value?.bidHistory ?? [])
 const lastRoundResult = computed(() => gs.value?.lastRoundResult)
 const tramResult = computed(() => gs.value?.tramResult)
+const dhaaps = computed(() => gs.value?.dhaaps ?? {})
 
 const isBidding = computed(() =>
   phase.value === 'bidding' || phase.value === 'bidding_forced' || phase.value === 'partner_reveal'
@@ -166,6 +167,13 @@ function onTram(payload) {
   onGameAction('call_tram', payload)
 }
 
+const showGiveUpConfirm = ref(false)
+
+function onGiveUp() {
+  showGiveUpConfirm.value = false
+  onGameAction('give_up', {})
+}
+
 function onRoundContinue() {
   showRoundSummary.value = false
   onGameAction('next_round', {})
@@ -218,20 +226,29 @@ function onLeave() {
       class="absolute inset-0 flex items-center justify-center pointer-events-none z-0"
     >
       <span
-        class="text-[220px] leading-none select-none"
+        class="text-[180px] sm:text-[220px] leading-none select-none"
         :class="['H','D'].includes(trump) ? 'text-red-400/[0.10]' : 'text-white/[0.10]'"
       >
         {{ TRUMP_SYMBOLS[trump] }}
       </span>
     </div>
 
-    <!-- Leave button -->
-    <button
-      @click="onLeaveClick"
-      class="absolute top-2 right-2 z-[22] bg-slate-800/80 hover:bg-red-700 text-slate-400 hover:text-white text-xs rounded-lg px-2 py-1 transition-colors"
-    >
-      Leave
-    </button>
+    <!-- Leave + Give Up buttons (top-right) -->
+    <div class="absolute top-2 right-2 z-[22] flex flex-col gap-1.5 items-end">
+      <button
+        @click="onLeaveClick"
+        class="bg-slate-800/80 hover:bg-red-700 text-slate-400 hover:text-white text-xs rounded-lg px-2 py-1 transition-colors"
+      >
+        Leave
+      </button>
+      <button
+        v-if="isPlaying"
+        @click="showGiveUpConfirm = true"
+        class="bg-red-900/60 hover:bg-red-800/80 text-red-300 text-xs font-medium rounded-lg px-3 py-1.5 transition-colors"
+      >
+        Give Up
+      </button>
+    </div>
 
     <!-- North player -->
     <div class="absolute top-2 left-1/2 -translate-x-1/2 z-10">
@@ -258,7 +275,7 @@ function onLeave() {
     <!-- Partner hand on north side (bid >= 10, during reveal or playing) -->
     <div
       v-if="showPartnerOnNorth && partnerHand && partnerHand.length > 0"
-      class="absolute top-[90px] left-1/2 -translate-x-1/2 z-[12] w-full max-w-[360px]"
+      class="absolute top-[11%] left-1/2 -translate-x-1/2 z-[12] w-full max-w-[360px]"
     >
       <PlayerHand
         :cards="partnerHand"
@@ -312,15 +329,15 @@ function onLeave() {
         :teamTricksNeeded="teamTarget(absSeat('east'))"
         :isMyTeam="isMyTeam(absSeat('east'))"
         :showTrickCircles="false"
-        :showScoreBadge="true"
       />
     </div>
 
     <!-- Center trick area -->
-    <div class="absolute top-[30%] left-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
+    <div class="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 z-10" :class="showPartnerOnNorth ? 'top-[38%]' : 'top-[30%]'">
       <TrickArea
         :currentTrick="gs.currentTrick ?? []"
         :mySeat="mySeat"
+        :dhaaps="dhaaps"
       />
     </div>
 
@@ -339,7 +356,7 @@ function onLeave() {
     </div>
 
     <!-- South (me) info -->
-    <div class="absolute left-1/2 -translate-x-1/2 z-10 bottom-[130px]">
+    <div class="absolute left-1/2 -translate-x-1/2 z-10 bottom-[15%]">
       <PlayerArea
         :seat="mySeat"
         :seatData="seats[mySeat]"
@@ -360,16 +377,24 @@ function onLeave() {
       />
     </div>
 
-    <!-- TRAM button + turn indicator -->
-    <div v-if="isPlaying" class="absolute bottom-[130px] left-3 z-20">
+    <!-- TRAM + Dhaap buttons -->
+    <div v-if="isPlaying && activeSeat === mySeat" class="absolute bottom-[15%] left-3 z-20 flex flex-col gap-1.5">
       <button
+        v-if="(gs.currentTrick ?? []).length === 0"
         @click="showTram = true"
         class="bg-slate-700/80 hover:bg-slate-600 text-white text-xs font-medium rounded-lg px-3 py-1.5 transition-colors"
       >
         TRAM
       </button>
+      <button
+        v-if="!dhaaps[mySeat]"
+        @click="onGameAction('declare_dhaap', {})"
+        class="bg-amber-700/80 hover:bg-amber-600 text-amber-100 text-xs font-medium rounded-lg px-3 py-1.5 transition-colors border border-amber-600/40"
+      >
+        Dhaap!
+      </button>
     </div>
-    <div v-if="isPlaying && (isPartnersTurn || (myTurn && activeSeat === mySeat))" class="absolute bottom-[130px] right-3 z-20">
+    <div v-if="isPlaying && (isPartnersTurn || (myTurn && activeSeat === mySeat))" class="absolute bottom-[15%] right-3 z-20">
       <span v-if="isPartnersTurn" class="text-yellow-400 text-xs font-medium bg-slate-900/80 rounded px-2 py-1">
         Play partner's card
       </span>
@@ -393,7 +418,7 @@ function onLeave() {
     </div>
 
     <!-- Bidding scrim (darkens table area above hand) -->
-    <div v-if="isBidding" class="absolute top-0 left-0 right-0 bottom-[130px] bg-black/40 z-[18] pointer-events-none" />
+    <div v-if="isBidding" class="absolute top-0 left-0 right-0 bottom-[15%] bg-black/40 z-[18] pointer-events-none" />
 
     <!-- Bidding panel (floating, centered in upper area) -->
     <div v-if="isBidding" class="absolute top-[50%] left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-full max-w-[320px] px-3" :class="showPartnerOnNorth ? 'top-[55%]' : 'top-[45%]'">
@@ -424,6 +449,7 @@ function onLeave() {
       :lastRoundResult="lastRoundResult"
       :seats="seats"
       :tramResult="tramResult"
+      :mySeat="mySeat"
       @continue="onRoundContinue"
     />
 
@@ -438,6 +464,27 @@ function onLeave() {
     />
 
     <!-- Leave confirmation dialog -->
+    <!-- Give Up confirmation -->
+    <div v-if="showGiveUpConfirm" class="absolute inset-0 bg-black/70 z-[30] flex items-center justify-center">
+      <div class="bg-slate-800 border border-slate-600 rounded-2xl p-5 max-w-[280px] text-center space-y-4">
+        <div class="text-white text-sm font-medium">Give up this round? All remaining tricks go to opponents.</div>
+        <div class="flex gap-3">
+          <button
+            @click="showGiveUpConfirm = false"
+            class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium rounded-lg py-2 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            @click="onGiveUp"
+            class="flex-1 bg-red-600 hover:bg-red-500 text-white text-sm font-medium rounded-lg py-2 transition-colors"
+          >
+            Give Up
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div v-if="showLeaveConfirm" class="absolute inset-0 bg-black/70 z-[30] flex items-center justify-center">
       <div class="bg-slate-800 border border-slate-600 rounded-2xl p-5 max-w-[280px] text-center space-y-4">
         <div class="text-white text-sm font-medium">You are the only human player. Leaving will end the game.</div>
