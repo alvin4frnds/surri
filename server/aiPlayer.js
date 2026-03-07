@@ -338,12 +338,12 @@ class AIPlayer {
       }
       // Consider declaring Dhaap when leading a strong suit
       if (!game.dhaaps[seat]) {
-        const trump = game.trump;
         const leadCard = this._decideLeadCard(seat, playable);
-        if (leadCard && Math.random() < 0.3) {
+        if (leadCard) {
           const leadSuit = cardSuit(leadCard);
           const suitCount = hand.filter(c => cardSuit(c) === leadSuit).length;
-          if ((leadSuit === trump && suitCount >= 3) || (leadSuit !== trump && suitCount >= 4)) {
+          const hasHigh = hand.filter(c => cardSuit(c) === leadSuit).some(c => cardRank(c) >= RANKS.indexOf('Q'));
+          if (hasHigh && ((leadSuit === trump && suitCount >= 3) || (leadSuit !== trump && suitCount >= 4))) {
             game.declareDhaap(seat);
           }
         }
@@ -488,12 +488,28 @@ class AIPlayer {
       }
     }
 
-    // Defending — lead trump to deplete bidder, but avoid suits opponents are void in
+    // Defending — strategic trump and non-trump leads
     if (!isBidding) {
       const trumpCards = playable.filter(c => cardSuit(c) === trump);
-      if (trumpCards.length > 0) return lowestCard(trumpCards);
 
-      // Lead suits where opponents are void (they can't follow) — partner might win
+      // Only lead trump when we have a strong position
+      if (trumpCards.length > 0) {
+        const totalTrumpsPlayed = game.playedCards.filter(c => cardSuit(c) === trump).length;
+        const totalTrumpsRemaining = 13 - totalTrumpsPlayed;
+        const opponentMaxTrumps = totalTrumpsRemaining - trumpCards.length;
+        const hasHighestTrump = highestRemainingInSuit(trump, playable, game.playedCards) !== null;
+
+        if (hasHighestTrump || trumpCards.length > opponentMaxTrumps) {
+          return lowestCard(trumpCards);
+        }
+      }
+
+      // Lead guaranteed winners in non-trump suits
+      const defWinners = getGuaranteedWinners(playable, trump, game.playedCards, opponentVoidSuits);
+      const nonTrumpWinners = defWinners.filter(c => cardSuit(c) !== trump);
+      if (nonTrumpWinners.length > 0) return nonTrumpWinners[0];
+
+      // Lead suits where partner is void (they can trump) — partner might win
       const feedPartner = playable.filter(c => {
         const s = cardSuit(c);
         return s !== trump && partnerVoidSuits.has(s) && !opponentVoidSuits.some(vs => vs.has(s));
@@ -515,6 +531,12 @@ class AIPlayer {
     const partnerWinning = currentWinnerSeat === partnerSeat;
 
     const suitCards = playable.filter(c => cardSuit(c) === ledSuit);
+
+    // Dhaap: if partner declared Dhaap and led this trick, play our highest in their suit
+    if (game.dhaaps[partnerSeat] && game.currentTrick.length > 0 &&
+        game.currentTrick[0].seat === partnerSeat && suitCards.length > 0) {
+      return highestCard(suitCards);
+    }
     const currentWinnerCard = game.currentTrick.find(p => p.seat === currentWinnerSeat)?.card;
     const cardsInTrick = game.currentTrick.length;
     const isLastToPlay = cardsInTrick === 3;

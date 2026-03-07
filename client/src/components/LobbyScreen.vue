@@ -52,7 +52,7 @@ function onCodeKeydown(e) {
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col items-center justify-center px-6 py-12 relative">
+  <div class="h-full flex flex-col items-center justify-center px-6 pt-14 pb-8 relative overflow-y-auto">
     <!-- Alpha banner -->
     <div class="absolute top-0 left-0 right-0 bg-amber-700/90 text-amber-100 text-xs font-bold text-center py-2 px-4">
       Alpha stage — bugs and hangs are expected. Please share feedback to help us improve!
