@@ -2,3 +2,18 @@ node_modules/
 dist/
 .env
 *.log
+
+# Android (Capacitor)
+client/android/app/build/
+client/android/.gradle/
+client/android/build/
+client/android/local.properties
+client/android/app/google-services.json
+
+# Capacitor native env
+client/.env.native
+client/.env.keystore
+
+# Signing
+*.keystore
+*.jks

@@ -1,6 +1,7 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import { socket } from './socket.js'
+import { logEvent, setUserId } from './services/analytics.js'
 import LobbyScreen from './components/LobbyScreen.vue'
 import WaitingRoom from './components/WaitingRoom.vue'
 import GameBoard from './components/GameBoard.vue'
@@ -39,6 +40,8 @@ socket.on('room_created', ({ code, seat, state }) => {
   roomState.value = state
   view.value = 'waiting'
   error.value = null
+  setUserId(socket.id)
+  logEvent('room_created', { botCount: state.botCount ?? 0 })
 })
 
 socket.on('room_joined', ({ seat, state }) => {
@@ -47,6 +50,8 @@ socket.on('room_joined', ({ seat, state }) => {
   myRoomCode.value = state.code
   view.value = 'waiting'
   error.value = null
+  setUserId(socket.id)
+  logEvent('room_joined')
 })
 
 socket.on('room_updated', ({ state }) => {
@@ -86,6 +91,7 @@ function onJoinRoom({ name, code }) {
 
 function onStartGame() {
   socket.emit('start_game', {})
+  logEvent('game_start')
 }
 
 function onGameAction(event, payload) {

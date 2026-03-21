@@ -1,4 +1,7 @@
 <script setup>
+import { onMounted } from 'vue'
+import { logEvent } from '../services/analytics.js'
+
 const props = defineProps({
   lastRoundResult: { type: Object, required: true },
   seats: { type: Array, default: () => [] },
@@ -6,6 +9,10 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['play-again', 'leave'])
+
+onMounted(() => {
+  logEvent('game_end', { winner: winnerName() })
+})
 
 function winner() {
   return props.lastRoundResult?.winner
