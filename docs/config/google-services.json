@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "548467347174",
+    "project_id": "surri-6f7bc",
+    "storage_bucket": "surri-6f7bc.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:548467347174:android:dc87138c1ddfeee6f37527",
+        "android_client_info": {
+          "package_name": "in.xuresolutions.surri"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB4JhLuEz7hsgmEpeYlvUdm7vKOTNeT2sU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
