@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .env
+.env.*
 *.log
 
 # Android (Capacitor)
@@ -10,7 +11,8 @@ client/android/build/
 client/android/local.properties
 client/android/app/google-services.json
 
-# Capacitor native env
+# Capacitor native env / keystore passwords
+# (covered by .env.* above, kept explicit for clarity)
 client/.env.native
 client/.env.keystore
 
