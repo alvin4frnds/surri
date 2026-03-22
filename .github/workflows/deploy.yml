@@ -19,6 +19,4 @@ jobs:
             git pull origin master
             npm run install:all
             cd client && npm run build && cd ..
-            cp nginx/surri2.conf /etc/nginx/sites-available/surri2
-            nginx -t && systemctl reload nginx
             pm2 restart surri2
