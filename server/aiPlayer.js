@@ -790,4 +790,4 @@ class AIPlayer {
   }
 }
 
-module.exports = { AIPlayer };
+module.exports = { AIPlayer, _countSuitLed, highestRemainingInSuit };
