@@ -155,6 +155,137 @@ function validateTram(claimedCards, claimerSeat, hands, trump, bid, tricks) {
   return { valid: true };
 }
 
+/**
+ * Validate a TRAM claim when bidder controls partner's hand (bid >= 10).
+ * Simulates full 4-player tricks with both team members' cards.
+ * @param {string[]} myCards - ordered cards the bidder will play
+ * @param {string[]} partnerCards - ordered cards the partner will play
+ * @param {number} bidderSeat
+ * @param {Object} hands - {0:[],1:[],2:[],3:[]}
+ * @param {string} trump
+ * @param {number} activeSeat - who leads the first trick
+ * @returns {{ valid: boolean, reason?: string }}
+ */
+function validateTramDual(myCards, partnerCards, bidderSeat, hands, trump, activeSeat) {
+  if (myCards.length !== partnerCards.length) {
+    return { valid: false, reason: 'Must select same number of cards from each hand' };
+  }
+
+  const partnerSeat = (bidderSeat + 2) % 4;
+  const opponents = [0, 1, 2, 3].filter(s => (s % 2) !== (bidderSeat % 2));
+
+  // Work on copies
+  const remainingHands = {};
+  for (let s = 0; s < 4; s++) {
+    remainingHands[s] = [...hands[s]];
+  }
+
+  let leader = activeSeat;
+
+  for (let i = 0; i < myCards.length; i++) {
+    // Determine who leads and who follows based on trick winner
+    let leadSeat, followSeat, leadCard, followCard;
+    if (leader === partnerSeat) {
+      leadSeat = partnerSeat;
+      followSeat = bidderSeat;
+      leadCard = partnerCards[i];
+      followCard = myCards[i];
+    } else {
+      leadSeat = bidderSeat;
+      followSeat = partnerSeat;
+      leadCard = myCards[i];
+      followCard = partnerCards[i];
+    }
+
+    // Validate and remove lead card
+    const leadIdx = remainingHands[leadSeat].indexOf(leadCard);
+    if (leadIdx === -1) return { valid: false, reason: `Card ${leadCard} not in ${leadSeat === bidderSeat ? 'your' : "partner's"} hand` };
+    remainingHands[leadSeat].splice(leadIdx, 1);
+
+    const ledSuit = cardSuit(leadCard);
+
+    // Build trick in clockwise order from leader
+    const trick = [{ seat: leadSeat, card: leadCard }];
+
+    // Play clockwise from leader
+    for (let offset = 1; offset <= 3; offset++) {
+      const seat = (leadSeat + offset) % 4;
+
+      if (seat === followSeat) {
+        // Teammate follows — validate follow-suit rules
+        const followSuit = cardSuit(followCard);
+        const suitCards = remainingHands[followSeat].filter(c => cardSuit(c) === ledSuit);
+        if (suitCards.length > 0 && followSuit !== ledSuit) {
+          return { valid: false, reason: `Partner must follow suit (${ledSuit}) but selected ${followCard}` };
+        }
+        const followIdx = remainingHands[followSeat].indexOf(followCard);
+        if (followIdx === -1) return { valid: false, reason: `Card ${followCard} not in ${followSeat === bidderSeat ? 'your' : "partner's"} hand` };
+        remainingHands[followSeat].splice(followIdx, 1);
+        trick.push({ seat: followSeat, card: followCard });
+      } else {
+        // Opponent seat — simulate worst-case play
+        const oppHand = remainingHands[seat];
+        if (oppHand.length === 0) {
+          trick.push({ seat, card: null });
+          continue;
+        }
+
+        const suitCards = oppHand.filter(c => cardSuit(c) === ledSuit);
+        if (suitCards.length > 0) {
+          // Must follow suit — check if best card can win trick
+          const bestInSuit = suitCards.reduce((best, c) => cardRank(c) > cardRank(best) ? c : best);
+          // Check if this card would win the trick so far
+          const testTrick = [...trick, { seat, card: bestInSuit }];
+          const testWinner = trickWinner(testTrick, trump);
+          if (testWinner === seat) {
+            return { valid: false, reason: `Opponent at seat ${seat} can beat with ${bestInSuit}` };
+          }
+          // Can't win — play lowest card to conserve
+          const lowestInSuit = suitCards.reduce((low, c) => cardRank(c) < cardRank(low) ? c : low);
+          const removeIdx = oppHand.indexOf(lowestInSuit);
+          if (removeIdx !== -1) oppHand.splice(removeIdx, 1);
+          trick.push({ seat, card: lowestInSuit });
+        } else {
+          // Void in led suit — can they trump?
+          const oppTrumps = oppHand.filter(c => cardSuit(c) === trump);
+          if (oppTrumps.length > 0) {
+            // Check if their best trump would win the trick
+            const bestTrump = oppTrumps.reduce((best, c) => cardRank(c) > cardRank(best) ? c : best);
+            const testTrick = [...trick, { seat, card: bestTrump }];
+            const testWinner = trickWinner(testTrick, trump);
+            if (testWinner === seat) {
+              return { valid: false, reason: `Opponent at seat ${seat} can trump with ${bestTrump}` };
+            }
+            // Their trump doesn't win (teammate has higher trump) — play lowest trump
+            const lowestTrump = oppTrumps.reduce((low, c) => cardRank(c) < cardRank(low) ? c : low);
+            const removeIdx = oppHand.indexOf(lowestTrump);
+            if (removeIdx !== -1) oppHand.splice(removeIdx, 1);
+            trick.push({ seat, card: lowestTrump });
+          } else {
+            // No suit, no trump — discard lowest card
+            const lowest = oppHand.reduce((low, c) => cardRank(c) < cardRank(low) ? c : low);
+            const removeIdx = oppHand.indexOf(lowest);
+            if (removeIdx !== -1) oppHand.splice(removeIdx, 1);
+            trick.push({ seat, card: lowest });
+          }
+        }
+      }
+    }
+
+    // Verify trick winner is on claiming team
+    const validTrick = trick.filter(t => t.card !== null);
+    const winner = trickWinner(validTrick, trump);
+    if (winner % 2 !== bidderSeat % 2) {
+      return { valid: false, reason: `Opponent wins trick ${i + 1}` };
+    }
+
+    // Winner leads next trick
+    leader = winner;
+  }
+
+  return { valid: true };
+}
+
 // ---------------------------------------------------------------------------
 // SurriGame
 // ---------------------------------------------------------------------------
@@ -600,7 +731,7 @@ class SurriGame {
   // TRAM
   // -------------------------------------------------------------------------
 
-  callTram(seat, cards) {
+  callTram(seat, cards, partnerCards = null) {
     if (this.phase !== 'playing') {
       return { ok: false, error: 'Not in playing phase' };
     }
@@ -614,7 +745,10 @@ class SurriGame {
     }
 
     const callerTeam = seat % 2;
-    const result = validateTram(cards, seat, this.hands, this.trump, this.bid, this.tricks);
+    const useDual = this.bid >= 10 && seat === this.biddingSeat && partnerCards;
+    const result = useDual
+      ? validateTramDual(cards, partnerCards, seat, this.hands, this.trump, this.activeSeat)
+      : validateTram(cards, seat, this.hands, this.trump, this.bid, this.tricks);
 
     if (result.valid) {
       const tricksNeeded = this._tricksNeededForClaimer(seat);
@@ -642,6 +776,7 @@ class SurriGame {
       callerName: this.seats[seat]?.name ?? `Player ${seat}`,
       valid: result.valid,
       cards,
+      partnerCards: partnerCards || null,
       failReason: result.reason || null,
     };
 

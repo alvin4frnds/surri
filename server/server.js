@@ -24,11 +24,21 @@ const rooms = new Map();
 // socketId -> { roomCode, seat }
 const socketToRoom = new Map();
 
+// playerId -> { roomCode, seat } — tracks active player sessions
+const playerToRoom = new Map();
+
+// playerId -> { roomCode, seat, playerName, timeout, disconnectedAt }
+const pendingReconnects = new Map();
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 function generateCode() {
+  const size = rooms.size;
+  if (size < 100) return String(Math.floor(Math.random() * 900) + 100);
+  if (size < 9000) return String(Math.floor(Math.random() * 9000) + 1000);
+  if (size < 90000) return String(Math.floor(Math.random() * 90000) + 10000);
   return Math.random().toString(36).slice(2, 6).toUpperCase();
 }
 
@@ -39,6 +49,7 @@ function getRoomState(room) {
       name: s ? s.name : null,
       isBot: s ? s.isBot : false,
       isConnected: s ? s.isConnected : false,
+      isTempBot: s ? (s.isTempBot || false) : false,
     })),
     hostSeat: room.hostSeat,
     gameStarted: room.gameStarted,
@@ -296,7 +307,9 @@ app.get('/dashboard', (req, res) => {
 // ---------------------------------------------------------------------------
 
 io.on('connection', (socket) => {
-  console.log(`Socket connected: ${socket.id}`);
+  const playerId = socket.handshake.auth?.playerId || null;
+  socket.playerId = playerId;
+  console.log(`Socket connected: ${socket.id} (playerId: ${playerId})`);
 
   // -------------------------------------------------------------------------
   // create_room
@@ -311,7 +324,7 @@ io.on('connection', (socket) => {
       const seats = [];
 
       // Host takes seat 0
-      seats[0] = { name, isBot: false, socketId: socket.id, isConnected: true };
+      seats[0] = { name, isBot: false, socketId: socket.id, isConnected: true, playerId };
 
       // Fill remaining seats with bots (seats 1..botCount)
       for (let i = 1; i <= botCount; i++) {
@@ -335,6 +348,7 @@ io.on('connection', (socket) => {
 
       rooms.set(code, room);
       socketToRoom.set(socket.id, { roomCode: code, seat: 0 });
+      if (playerId) playerToRoom.set(playerId, { roomCode: code, seat: 0 });
       socket.join(code);
 
       const state = getRoomState(room);
@@ -382,8 +396,9 @@ io.on('connection', (socket) => {
         return socket.emit('error', { message: 'Room is full' });
       }
 
-      room.seats[seat] = { name, isBot: false, socketId: socket.id, isConnected: true };
+      room.seats[seat] = { name, isBot: false, socketId: socket.id, isConnected: true, playerId };
       socketToRoom.set(socket.id, { roomCode: code, seat });
+      if (playerId) playerToRoom.set(playerId, { roomCode: code, seat });
       socket.join(code);
 
       const state = getRoomState(room);
@@ -617,14 +632,14 @@ io.on('connection', (socket) => {
   // -------------------------------------------------------------------------
   // call_tram
   // -------------------------------------------------------------------------
-  socket.on('call_tram', async ({ cards }) => {
+  socket.on('call_tram', async ({ cards, partnerCards }) => {
     try {
       const info = socketToRoom.get(socket.id);
       if (!info) return socket.emit('error', { message: 'Not in a room' });
       const room = rooms.get(info.roomCode);
       if (!room || !room.game) return socket.emit('error', { message: 'No game in progress' });
 
-      const result = room.game.callTram(info.seat, cards);
+      const result = room.game.callTram(info.seat, cards, partnerCards || null);
       if (!result.ok) return socket.emit('error', { message: result.error });
 
       broadcastGameState(info.roomCode);
@@ -700,6 +715,89 @@ io.on('connection', (socket) => {
   });
 
   // -------------------------------------------------------------------------
+  // rejoin_room — reconnect after temporary disconnect
+  // -------------------------------------------------------------------------
+  socket.on('rejoin_room', () => {
+    const pid = socket.playerId;
+    if (!pid) {
+      socket.emit('rejoin_failed', { reason: 'no_player_id' });
+      return;
+    }
+
+    const pending = pendingReconnects.get(pid);
+    if (!pending) {
+      socket.emit('rejoin_failed', { reason: 'no_pending_session' });
+      return;
+    }
+
+    const room = rooms.get(pending.roomCode);
+    if (!room) {
+      clearTimeout(pending.timeout);
+      pendingReconnects.delete(pid);
+      playerToRoom.delete(pid);
+      socket.emit('rejoin_failed', { reason: 'room_deleted' });
+      return;
+    }
+
+    const seatInfo = room.seats[pending.seat];
+    if (!seatInfo) {
+      clearTimeout(pending.timeout);
+      pendingReconnects.delete(pid);
+      playerToRoom.delete(pid);
+      socket.emit('rejoin_failed', { reason: 'seat_gone' });
+      return;
+    }
+
+    // Clear the grace period timeout
+    clearTimeout(pending.timeout);
+    pendingReconnects.delete(pid);
+
+    // Restore seat to human
+    seatInfo.isBot = false;
+    seatInfo.isTempBot = false;
+    seatInfo.socketId = socket.id;
+    seatInfo.isConnected = true;
+    seatInfo.playerId = pid;
+
+    if (room.game && room.game.seats[pending.seat]) {
+      room.game.seats[pending.seat].isBot = false;
+      room.game.seats[pending.seat].isConnected = true;
+      room.game.seats[pending.seat].isTempBot = false;
+    }
+
+    // Remove bot
+    delete room.bots[pending.seat];
+
+    // Update maps
+    socketToRoom.set(socket.id, { roomCode: pending.roomCode, seat: pending.seat });
+    playerToRoom.set(pid, { roomCode: pending.roomCode, seat: pending.seat });
+    socket.join(pending.roomCode);
+
+    console.log(`Player ${pending.playerName} rejoined room ${pending.roomCode} seat ${pending.seat}`);
+
+    // Send current state to reconnected player
+    const roomState = getRoomState(room);
+    if (room.game) {
+      socket.emit('rejoin_success', {
+        seat: pending.seat,
+        roomCode: pending.roomCode,
+        gameState: room.game.getStateFor(pending.seat),
+        roomState,
+      });
+    } else {
+      socket.emit('rejoin_success', {
+        seat: pending.seat,
+        roomCode: pending.roomCode,
+        roomState,
+      });
+    }
+
+    // Broadcast updated state to all (seat no longer temp-bot)
+    broadcastGameState(pending.roomCode);
+    broadcastRoomState(pending.roomCode);
+  });
+
+  // -------------------------------------------------------------------------
   // disconnect
   // -------------------------------------------------------------------------
   socket.on('disconnect', async () => {
@@ -715,27 +813,79 @@ io.on('connection', (socket) => {
     const seatInfo = room.seats[info.seat];
     if (seatInfo && !seatInfo.isBot) {
       seatInfo.isConnected = false;
+      seatInfo.socketId = null;
 
       if (room.game) {
-        // Bot takes over the seat
+        // Bot takes over the seat immediately
         seatInfo.isBot = true;
-        // Update game's seat info
         if (room.game.seats[info.seat]) {
           room.game.seats[info.seat].isBot = true;
           room.game.seats[info.seat].isConnected = false;
         }
         createBotForSeat(info.seat, room);
+
+        const pid = socket.playerId;
+        if (pid) {
+          // Grace period: mark as temp bot, allow reconnection within 5 minutes
+          seatInfo.isTempBot = true;
+          if (room.game.seats[info.seat]) {
+            room.game.seats[info.seat].isTempBot = true;
+          }
+
+          // Clear any existing pending reconnect for this player
+          const existing = pendingReconnects.get(pid);
+          if (existing) clearTimeout(existing.timeout);
+
+          const timeout = setTimeout(() => {
+            // Grace period expired — seat becomes permanent bot
+            pendingReconnects.delete(pid);
+            playerToRoom.delete(pid);
+            const r = rooms.get(info.roomCode);
+            if (r && r.seats[info.seat]) {
+              r.seats[info.seat].isTempBot = false;
+              if (r.game && r.game.seats[info.seat]) {
+                r.game.seats[info.seat].isTempBot = false;
+              }
+              broadcastGameState(info.roomCode);
+              broadcastRoomState(info.roomCode);
+            }
+            console.log(`Grace period expired for player in room ${info.roomCode} seat ${info.seat}`);
+          }, 5 * 60 * 1000);
+
+          pendingReconnects.set(pid, {
+            roomCode: info.roomCode,
+            seat: info.seat,
+            playerName: seatInfo.name,
+            timeout,
+            disconnectedAt: Date.now(),
+          });
+
+          console.log(`Player ${seatInfo.name} disconnected from room ${info.roomCode} seat ${info.seat} — 5min grace period`);
+        } else {
+          seatInfo.isTempBot = false;
+        }
+
         broadcastGameState(info.roomCode);
 
         // If all 4 players are now bots, drop the game after 10 seconds
+        // BUT only if no one has a pending reconnect for this room
         const allBots = room.seats.every(s => s?.isBot);
-        if (allBots) {
+        const hasPendingReconnect = room.seats.some(s => s?.isTempBot);
+        if (allBots && !hasPendingReconnect) {
           console.log(`Room ${info.roomCode}: all players are bots, dropping in 10s`);
           setTimeout(() => {
             const r = rooms.get(info.roomCode);
-            if (r && r.seats.every(s => s?.isBot)) {
+            if (r && r.seats.every(s => s?.isBot) && !r.seats.some(s => s?.isTempBot)) {
               console.log(`Room ${info.roomCode}: dropped (all bots)`);
               rooms.delete(info.roomCode);
+              // Clean up pending reconnects for this room
+              for (const [pid, pr] of pendingReconnects) {
+                if (pr.roomCode === info.roomCode) {
+                  clearTimeout(pr.timeout);
+                  pendingReconnects.delete(pid);
+                  playerToRoom.delete(pid);
+                }
+              }
             }
           }, 10000);
         } else {
