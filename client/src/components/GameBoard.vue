@@ -112,6 +112,7 @@ function seatSupportSignal(seat) {
 }
 
 function seatBidAction(seat) {
+  if (!isBidding.value) return null
   const entry = bidHistory.value.find(e => e.seat === seat)
   if (!entry) return null
   if (entry.action === 'pass') return 'Pass'
