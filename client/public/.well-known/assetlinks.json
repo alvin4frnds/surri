@@ -1,10 +1,15 @@
-[{
-  "relation": ["delegate_permission/common.handle_all_urls"],
-  "target": {
-    "namespace": "android_app",
-    "package_name": "in.xuresolutions.surri",
-    "sha256_cert_fingerprints": [
-      "5F:9A:8E:6B:C4:A2:FF:FE:B3:69:16:52:44:F5:7F:C9:9C:E8:AA:CB:6C:3C:C7:EC:C5:79:17:37:E1:F5:C5:2C"
-    ]
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.get_login_creds"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "in.xuresolutions.surri",
+      "sha256_cert_fingerprints": [
+        "C9:17:B9:F3:18:D9:B8:0F:72:99:6F:1A:19:93:DF:0F:87:51:42:B2:50:2D:FF:A3:4A:8E:0A:58:33:F4:73:98"
+      ]
+    }
   }
-}]
+]
