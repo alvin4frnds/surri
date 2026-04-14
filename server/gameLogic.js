@@ -44,6 +44,15 @@ function cutShuffle(deck, times) {
   return deck;
 }
 
+function cutOnly(deck, times) {
+  deck = [...deck];
+  for (let i = 0; i < times; i++) {
+    const cut = Math.floor(Math.random() * (deck.length - 1)) + 1;
+    deck = [...deck.slice(cut), ...deck.slice(0, cut)];
+  }
+  return deck;
+}
+
 // ---------------------------------------------------------------------------
 // Trick evaluation
 // ---------------------------------------------------------------------------
@@ -164,6 +173,8 @@ class SurriGame {
     this.losses = { 0: 0, 1: 0, 2: 0, 3: 0 };
     this.round = 1;
     this._isFirstDeal = true;
+    this._roundsWithoutBid10 = 0;
+    this._lastDeck = null;
 
     // Round state
     this.hands = { 0: [], 1: [], 2: [], 3: [] };
@@ -186,6 +197,7 @@ class SurriGame {
     this.playedCards = []; // all cards played this round (for AI tracking)
     this.voidSuits = { 0: new Set(), 1: new Set(), 2: new Set(), 3: new Set() }; // suits each seat has shown void in
     this.dhaaps = {}; // { seat: true } — seats that declared Dhaap this trick
+    this.completedTricks = []; // [{winner, cards: [{seat, card}...]}]
   }
 
   // -------------------------------------------------------------------------
@@ -216,6 +228,7 @@ class SurriGame {
     this.playedCards = [];
     this.voidSuits = { 0: new Set(), 1: new Set(), 2: new Set(), 3: new Set() };
     this.dhaaps = {};
+    this.completedTricks = [];
 
     // Deal
     this._deal();
@@ -226,13 +239,53 @@ class SurriGame {
     return { ok: true };
   }
 
+  _gatherCards() {
+    const deck = [];
+    // Collect tricks won by each seat, starting from dealer clockwise
+    // Group tricks by winner
+    const tricksBySeat = { 0: [], 1: [], 2: [], 3: [] };
+    for (const trick of this.completedTricks) {
+      tricksBySeat[trick.winner].push(trick.cards);
+    }
+    // Dealer picks up first, then clockwise
+    for (let i = 0; i < 4; i++) {
+      const seat = (this.dealer + i) % 4;
+      for (const trickCards of tricksBySeat[seat]) {
+        for (const play of trickCards) {
+          deck.push(play.card);
+        }
+      }
+    }
+    // Append unplayed cards (TRAM/give-up) — dealer clockwise
+    for (let i = 0; i < 4; i++) {
+      const seat = (this.dealer + i) % 4;
+      if (this.hands[seat]) {
+        for (const card of this.hands[seat]) {
+          deck.push(card);
+        }
+      }
+    }
+    // Append any cards left in currentTrick (give-up mid-trick)
+    for (const play of this.currentTrick) {
+      deck.push(play.card);
+    }
+    this._lastDeck = deck;
+  }
+
   _deal() {
-    let deck = buildDeck();
+    let deck;
     if (this._isFirstDeal) {
-      deck = cutShuffle(deck, 15);
+      deck = cutShuffle(buildDeck(), 15);
       this._isFirstDeal = false;
+    } else if (this._lastDeck) {
+      const humanCount = this.seats.filter(s => !s.isBot).length;
+      let cuts = 5;
+      if (this._roundsWithoutBid10 > 5 && humanCount > 1) {
+        cuts = Math.max(2, 5 - (this._roundsWithoutBid10 - 5));
+      }
+      deck = cutOnly(this._lastDeck, cuts);
     } else {
-      deck = cutShuffle(deck, 5);
+      deck = cutShuffle(buildDeck(), 5);
     }
 
     // Deal clockwise starting from (dealer+1)%4, one card at a time
@@ -505,6 +558,7 @@ class SurriGame {
       this.playedCards.push(play.card);
     }
     this.lastTrick = { winner, cards: [...this.currentTrick] };
+    this.completedTricks.push({ winner, cards: [...this.currentTrick] });
     this.currentTrick = [];
     this.dhaaps = {};
 
@@ -747,6 +801,14 @@ class SurriGame {
       winner,
     };
 
+    // Gather cards for next round's deal and track bid-10 streak
+    this._gatherCards();
+    if (this.bid >= 10) {
+      this._roundsWithoutBid10 = 0;
+    } else {
+      this._roundsWithoutBid10++;
+    }
+
     this.phase = 'scoring';
     this.activeSeat = null;
 
@@ -788,6 +850,7 @@ class SurriGame {
         name: this.seats[s]?.name ?? `Player ${s}`,
         isBot: this.seats[s]?.isBot ?? false,
         isConnected: this.seats[s]?.isConnected ?? true,
+        isTempBot: this.seats[s]?.isTempBot ?? false,
         losses: this.losses[s],
       })),
 
