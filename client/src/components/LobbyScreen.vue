@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 
 const props = defineProps({
   error: { type: String, default: null },
+  initialCode: { type: String, default: null },
 })
 
 const emit = defineEmits(['create-room', 'join-room'])
@@ -16,6 +17,7 @@ const codeError = ref(false)
 onMounted(() => {
   const saved = localStorage.getItem('surri_name')
   if (saved) playerName.value = saved
+  if (props.initialCode) roomCode.value = props.initialCode
 })
 
 function saveName() {

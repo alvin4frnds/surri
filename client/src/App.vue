@@ -14,6 +14,14 @@ const myRoomCode = ref(null)
 const view = ref('lobby')
 const error = ref(null)
 const disconnected = ref(false)
+const joinCodeFromUrl = ref(null)
+
+// Parse /join/CODE from URL for share links
+const joinMatch = window.location.pathname.match(/^\/join\/(\w+)$/i)
+if (joinMatch) {
+  joinCodeFromUrl.value = joinMatch[1].toUpperCase()
+  window.history.replaceState({}, '', '/')
+}
 
 socket.on('disconnect', () => {
   disconnected.value = true
@@ -33,6 +41,23 @@ socket.on('connect', () => {
     }
   }
 })
+
+// Auto-join from share link if name is saved
+function tryAutoJoin() {
+  if (!joinCodeFromUrl.value) return
+  const savedName = localStorage.getItem('surri_name')
+  if (savedName) {
+    socket.emit('join_room', { name: savedName, code: joinCodeFromUrl.value })
+    joinCodeFromUrl.value = null
+  }
+}
+if (joinCodeFromUrl.value) {
+  if (socket.connected) {
+    tryAutoJoin()
+  } else {
+    socket.once('connect', tryAutoJoin)
+  }
+}
 
 socket.on('room_created', ({ code, seat, state }) => {
   myRoomCode.value = code
@@ -114,6 +139,7 @@ function onLeave() {
       <LobbyScreen
         v-if="view === 'lobby'"
         :error="error"
+        :initialCode="joinCodeFromUrl"
         @create-room="onCreateRoom"
         @join-room="onJoinRoom"
       />

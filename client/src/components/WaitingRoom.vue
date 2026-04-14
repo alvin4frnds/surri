@@ -10,6 +10,19 @@ function copyCode() {
   navigator.clipboard.writeText(props.roomState.code).catch(() => {})
 }
 
+function shareRoom() {
+  const url = `${window.location.origin}/join/${props.roomState.code}`
+  if (navigator.share) {
+    navigator.share({
+      title: 'Join my Surri game!',
+      text: `Join my Surri game — Room ${props.roomState.code}`,
+      url,
+    }).catch(() => {})
+  } else {
+    navigator.clipboard.writeText(url).catch(() => {})
+  }
+}
+
 function allSeatsReady() {
   if (!props.roomState) return false
   return props.roomState.seats.every(s => s.name !== null)
@@ -47,6 +60,12 @@ function seatIcon(seat) {
           class="bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm rounded-lg px-3 py-2 transition-colors"
         >
           Copy
+        </button>
+        <button
+          @click="shareRoom"
+          class="bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg px-3 py-2 transition-colors"
+        >
+          Share
         </button>
       </div>
     </div>
