@@ -4,9 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Surri is a multiplayer dealer-centric card game — a Spades variant. This is a fresh rewrite of the [Surri](../Surri) project (see v3 as the primary reference).
-
-**Status**: Pre-implementation — only `docs/` exists. The Commands and Architecture sections below describe the intended design to build toward.
+Surri is a multiplayer dealer-centric card game — a Spades variant with custom bidding, scoring, trump selection, and win conditions. This is a rewrite of the [Surri](../Surri) project (v3 as primary reference). Fully implemented and deployed at https://surri.xuresolutions.in.
 
 ### Docs Reference
 
@@ -19,116 +17,105 @@ Surri is a multiplayer dealer-centric card game — a Spades variant. This is a 
 
 ## Commands
 
-From the repo root:
-
 ```bash
-npm run install:all   # Install dependencies for both server and client
-npm run dev           # Run server + client concurrently
+npm run install:all   # Install deps for both server and client
+npm run dev           # Run server + client concurrently (dev mode)
 npm run server        # Start server only
 npm run client        # Start client only
 ```
 
-For server hot-reload during development:
+Individual dev servers:
 ```bash
-cd server && npm run dev   # nodemon auto-restart
+cd server && npm run dev   # nodemon hot-reload on port 3000
+cd client && npm run dev   # Vite HMR on port 5173
 ```
 
-For client HMR during development:
-```bash
-cd client && npm run dev   # Vite dev server
-```
-
-Production build:
+Production:
 ```bash
 cd client && npm run build   # Outputs to client/dist/
 cd server && npm start       # Run server in production
 ```
 
+Testing (headless integration — connects 1 human + 3 bots, plays 3 games):
+```bash
+FAST_TEST=1 node server/test-game.js
+```
+
+No linter or formatter is configured.
+
 ## Deployment
 
 **Live URL**: https://surri.xuresolutions.in
+**Server path**: `/var/www/html/surri2` on Ubuntu
 
-The app is deployed on an Ubuntu server at `/var/www/html/surri2`.
-
-### Stack
-- **Nginx** — serves `client/dist/` static files, proxies `/socket.io/` to Node
+- **Nginx** — serves `client/dist/` static files, proxies `/socket.io/`, `/api/`, `/dashboard` to Node. Config: `nginx/surri2.conf` (deployed at `/etc/nginx/sites-available/surri2`)
 - **PM2** — runs `server/server.js` as process `surri2` on port 3000
-- **GitHub Actions** — auto-deploys on push to `master` via `.github/workflows/deploy.yml`
+- **GitHub Actions** — auto-deploys on push to `master` (`.github/workflows/deploy.yml`). Requires secrets: `SERVER_IP`, `SSH_PRIVATE_KEY`
 
-### Auto-deploy (CI/CD)
-Every push to `master` triggers a GitHub Actions workflow that SSHs into the server and runs:
-```bash
-cd /var/www/html/surri2
-git pull origin master
-npm run install:all
-cd client && npm run build && cd ..
-pm2 restart surri2
-```
-
-**GitHub Secrets required**: `SERVER_IP`, `SSH_PRIVATE_KEY` (ed25519 deploy key at `~/.ssh/surri_deploy`)
-
-### Manual deploy
+Manual deploy:
 ```bash
 ssh root@<server-ip>
 cd /var/www/html/surri2
-git pull origin master
-npm run install:all
+git pull origin master && npm run install:all
 cd client && npm run build && cd ..
 pm2 restart surri2
 ```
 
-### Nginx config
-Located at `/etc/nginx/sites-available/surri2`. Serves Vue SPA with `try_files` fallback and proxies `/socket.io/` with WebSocket upgrade headers.
-
 ## Architecture
 
-### Structure
+### Server (`server/`)
 
-```
-Surri2/
-├── server/          # Express + Socket.io backend (port 3000)
-│   ├── server.js    # Room/player management, socket event handlers
-│   ├── gameLogic.js # SurriGame class — all game state and rules
-│   └── aiPlayer.js  # AIPlayer class — bot bidding and card-play decisions
-├── client/          # Vue 3 + Vite frontend (port 5173)
-│   ├── src/
-│   │   ├── App.vue        # Room join UI
-│   │   ├── socket.js      # Socket.io-client (connects to localhost:3000)
-│   │   └── components/    # GameBoard, GameTable, BiddingPanel, Card, PlayerHand
-│   └── tailwind.config.js
-└── docs/            # Game rules, design docs
-```
+Three files, no framework beyond Express + Socket.io:
 
-### Key Patterns
+| File | Class/Role | What it owns |
+|---|---|---|
+| `server.js` | Room management, socket event handlers | `rooms` Map, `socketToRoom` Map, bot orchestration, REST endpoints (`/api/stats`, `/dashboard`) |
+| `gameLogic.js` | `SurriGame` class | All game state and rules: dealing, bidding, playing, TRAM validation, scoring, dealer rotation |
+| `aiPlayer.js` | `AIPlayer` class | Bot decisions: hand evaluation, bid/pass logic, card selection, TRAM attempts |
+| `githubIssue.js` | `createIssue()` | In-game bug reporting → GitHub Issues API with screenshot upload |
 
-- **All game state lives on the server** — client is purely a view layer
-- **No REST API** — all communication is via Socket.io events
-- **In-memory state** — rooms and games stored in `Map` objects on the server
-- **Player identity** — tracked by socket ID mapped to room ID
-- **AI bots** — fill empty seats; 0–3 bots configurable at room creation
+**State model**: All game state is server-side, in-memory `Map` objects. No database. Rooms keyed by 4-char code; players tracked by `socketId → {roomCode, seat}`.
+
+**Game phases** (sequential): `dealing` → `bidding` / `bidding_forced` → `partner_reveal` (if bid ≥10) → `playing` → `scoring`
+
+**Bot loop**: `runBotTurns()` in `server.js` runs after each human action — async loop that fires bot decisions (with delays) until it's a human player's turn again. `FAST_TEST` env var reduces delays to 10-50ms.
+
+**Key socket events**: `create_room`, `join_room`, `start_game`, `ask_support`, `give_support`, `place_bid`, `pass_bid`, `increase_bid`, `start_play`, `play_card`, `declare_dhaap`, `call_tram`, `give_up`, `next_round`, `report_issue`
+
+**State serialization**: `game.getStateFor(seat)` returns a seat-specific view — hides opponent hands, includes `playableCards` for the active player. Partner hand is visible to all when bid ≥10.
+
+**Disconnect handling**: Disconnected human → instantly replaced by bot (keeps seat). If all 4 seats become bots, room auto-deletes after 10s.
+
+### Client (`client/src/`)
+
+Vue 3 + Vite + Tailwind v4. All components use `<script setup>` composition API. Mobile-first layout (max 390×844px).
+
+**Entry**: `main.js` → Firebase Analytics init → mount `App.vue`
+
+**`App.vue`** manages view state (`lobby` → `waiting` → `game`) and all socket listeners. Three main screens:
+- `LobbyScreen.vue` — create/join room
+- `WaitingRoom.vue` — pre-game player list, host starts game
+- `GameBoard.vue` — main gameplay, orchestrates all sub-components
+
+**Key components**: `PlayerHand` (clickable cards), `BiddingPanel` (bid/pass/support UI), `TrickArea` (current trick display), `PlayerArea` (per-player info), `TramOverlay` (card selection for TRAM claims), `RoundSummary` (post-round scoring)
+
+**Socket connection** (`socket.js`): Singleton connecting to `VITE_SERVER_URL` env var, or auto-detects localhost:3000 / current origin. Exposed as `window.__socket` for debugging.
+
+**Vite dev proxy**: `/dashboard` and `/api/` proxied to localhost:3000.
+
+**Native mobile**: Capacitor v8 configured for Android (`client/capacitor.config.json`). Firebase Analytics works on both web and native via `analytics.js` service.
 
 ### Game Domain
 
-Surri is a trick-taking game that inherits its trick engine from Spades but replaces bidding, scoring, trump selection, and win conditions. See `docs/GameFlow.md` for the authoritative rules.
+See `docs/GameFlow.md` for authoritative rules. Key points:
 
 - 4 players, 2 teams: seats 0 & 2 vs seats 1 & 3
-- **First dealer**: highest-card draw at the very start of each game
-- **Trump chosen by bidder** each round (not always spades); no breaking rule — any suit can be led anytime
-- **Bidding**: Sequential clockwise starting left of dealer. Voluntary bid ≥10; if all 4 pass, first player is **forced to bid ≥8**
-- **Support signals**: Before bidding, a player may ask their partner for Major/Minor/Pass — visible to all
-- **Bid ≥10**: Partner's hand revealed to ALL players; bidder controls partner's card selection; **bidder leads trick 1**
-- **Bid 13**: Instant win/lose — existing score stops mattering, losing side takes a loss; special dealer rotation (see `docs/GameFlow.md` §6 table)
-- **Defending team target**: ≥(14 − bid) tricks to break the bid (e.g., bid 10 → defense needs ≥4)
-- **Scoring**: Only the dealer's team has a score (high = bad, ≥52 = lose)
-
-  | Who bid? | Outcome | Score change |
-  |---|---|---|
-  | Non-dealer's team bids X | Made | dealer_score **+= X** |
-  | Non-dealer's team bids X | Failed | dealer_score **−= 2X** |
-  | Dealer's team bids X | Made | dealer_score **−= X** |
-  | Dealer's team bids X | Failed | dealer_score **+= 2X** |
-
-- **Dealer rotation triggers**: score ≥52 → dealer loses, score resets to 0, partner deals; score goes negative → score becomes `|score|`, next clockwise player deals (no loss); bid-13 → special table in `docs/GameFlow.md`
-- **Game end**: Runs indefinitely; 3 unique players must each lose at least once — 4th player wins
-- **TRAM**: Any team can claim the *remaining needed tricks* mid-play by selecting cards in order; server validates each card is unbeatable — if invalid, all remaining tricks go to opponents
-- Card shuffling uses cut shuffles (15 for first deal, 5 for subsequent)
+- **Trump chosen by bidder** each round (not always spades); any suit can be led anytime
+- **Bidding**: Clockwise from left of dealer. Voluntary bid ≥10; if all pass, first player forced to bid ≥8
+- **Support signals**: Before bidding, ask partner for Full/Major/Minor/Pass — visible to all
+- **Bid ≥10**: Partner's hand revealed to ALL; bidder controls partner's cards; bidder leads trick 1
+- **Bid 13**: Instant win/lose — special dealer rotation rules
+- **Scoring**: Only dealer's team has a score (high = bad, ≥52 = lose). Non-dealer bid made → `+X`; failed → `-2X`. Dealer bid made → `-X`; failed → `+2X`
+- **Dealer rotation**: Score ≥52 → dealer loses, score resets, partner deals. Score negative → becomes `|score|`, next clockwise deals
+- **TRAM**: Claim remaining tricks by selecting cards in order; server validates each is unbeatable via simulation
+- **Game end**: 3 unique players must each lose once — 4th player wins

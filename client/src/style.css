@@ -1,3 +1,5 @@
 @import "tailwindcss";
 
 body { background: #0f1b2d; color: #e2e8f0; font-family: sans-serif; }
+
+* { touch-action: manipulation; }
