@@ -93,6 +93,18 @@ function lowestWinningCard(cards, winnerCard) {
 }
 
 /**
+ * Count how many completed tricks were led with the given suit.
+ * playedCards is a flat array where every group of 4 is one trick (index 0,4,8,… = lead card).
+ */
+function _countSuitLed(playedCards, suit) {
+  let count = 0;
+  for (let i = 0; i < playedCards.length; i += 4) {
+    if (cardSuit(playedCards[i]) === suit) count++;
+  }
+  return count;
+}
+
+/**
  * Check if the player holds the highest remaining card in a suit.
  * Returns the card if so, null otherwise.
  */
@@ -336,15 +348,33 @@ class AIPlayer {
         game.callTram(seat, tramCards);
         return { action: 'call_tram', cards: tramCards };
       }
-      // Consider declaring Dhaap when leading a strong suit
+      // Consider declaring Dhaap when leading
       if (!game.dhaaps[seat]) {
         const leadCard = this._decideLeadCard(seat, playable);
         if (leadCard) {
           const leadSuit = cardSuit(leadCard);
-          const suitCount = hand.filter(c => cardSuit(c) === leadSuit).length;
-          const hasHigh = hand.filter(c => cardSuit(c) === leadSuit).some(c => cardRank(c) >= RANKS.indexOf('Q'));
-          if (hasHigh && ((leadSuit === trump && suitCount >= 3) || (leadSuit !== trump && suitCount >= 4))) {
+          // Count how many tricks have been led with this suit
+          const suitLedCount = _countSuitLed(game.playedCards, leadSuit);
+          const opponents = [1, 3].map(i => (seat + i) % 4);
+
+          // Rule 1: After this trick I hold the highest remaining card of the suit,
+          // and the suit has been led < 2 times so far
+          const topCard = highestRemainingInSuit(leadSuit, hand, game.playedCards);
+          if (topCard && topCard !== leadCard && suitLedCount < 2) {
             game.declareDhaap(seat);
+          }
+
+          // Rule 2: After playing this card I'll be void in the suit, I have trump
+          // to cut next time, suit led < 3 times, and no opponent is also void
+          if (!game.dhaaps[seat]) {
+            const myCardsInSuit = hand.filter(c => cardSuit(c) === leadSuit);
+            const willBeVoid = myCardsInSuit.length === 1 && myCardsInSuit[0] === leadCard;
+            const hasTrump = hand.some(c => cardSuit(c) === trump && c !== leadCard);
+            const opponentAlsoVoid = opponents.some(s => game.voidSuits[s].has(leadSuit));
+
+            if (willBeVoid && hasTrump && leadSuit !== trump && suitLedCount < 3 && !opponentAlsoVoid) {
+              game.declareDhaap(seat);
+            }
           }
         }
       }
