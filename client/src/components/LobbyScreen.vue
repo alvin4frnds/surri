@@ -94,8 +94,9 @@ function onCodeKeydown(e) {
         <input
           v-model="roomCode"
           type="text"
+          inputmode="numeric"
           placeholder="Room Code"
-          maxlength="4"
+          maxlength="5"
           class="flex-1 bg-slate-800 border rounded-lg px-4 py-3 text-slate-100 placeholder-slate-500 focus:outline-none uppercase"
           :class="codeError ? 'border-red-500' : 'border-slate-600 focus:border-green-500'"
           @keydown="onCodeKeydown"
