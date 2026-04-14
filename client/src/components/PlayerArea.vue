@@ -94,12 +94,13 @@ const isVerticalStack = props.position === 'west' || props.position === 'east'
       :class="[
         isActive ? 'ring-2 ring-yellow-400' : '',
         isDealer ? 'bg-red-900/30 border-red-700/50' : 'bg-slate-800 border-slate-600',
-        !seatData?.isConnected && seatData ? 'opacity-50' : '',
+        !seatData?.isConnected && !seatData?.isTempBot && seatData ? 'opacity-50' : '',
       ]"
     >
       <!-- Name row -->
       <div class="flex items-center justify-center gap-1">
-        <span v-if="seatData?.isBot" class="text-sm">🤖</span>
+        <span v-if="seatData?.isTempBot" class="text-sm" title="Player disconnected — bot filling in">🤖📡</span>
+        <span v-else-if="seatData?.isBot" class="text-sm">🤖</span>
         <span v-else-if="!seatData?.isConnected && seatData" class="text-sm">🤖</span>
         <span v-else class="text-sm">👤</span>
 
