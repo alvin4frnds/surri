@@ -190,6 +190,14 @@ function onLeave() {
   </div>
 </template>
 
+<style>
+/* Edge-to-edge safe area support for Android 15+ */
+body {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+</style>
+
 <style scoped>
 .toast-fade-enter-active, .toast-fade-leave-active {
   transition: opacity 0.3s, transform 0.3s;

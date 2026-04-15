@@ -61,6 +61,25 @@ cd client && npm run build && cd ..
 pm2 restart surri2
 ```
 
+## Android Build (AAB)
+
+Requires JDK 21 and Android SDK. Keystore password is in `client/.env.keystore`.
+
+```bash
+cd client
+npm run cap:build                          # Build web assets + sync to Android
+cd android
+KEYSTORE_PASSWORD='Test@1234' KEY_PASSWORD='Test@1234' \
+  ./gradlew bundleRelease \
+  -Dorg.gradle.java.home="C:/Program Files/Eclipse Adoptium/jdk-21.0.10.7-hotspot"
+```
+
+Output: `client/android/app/build/outputs/bundle/release/app-release.aab`
+
+Version is in `client/android/app/build.gradle` (`versionCode` + `versionName`) — bump both before each Play Console upload.
+
+SDK path is set in `client/android/local.properties` (`sdk.dir=C:\\Users\\Praveen\\Android\\Sdk`).
+
 ## Architecture
 
 ### Server (`server/`)
