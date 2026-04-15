@@ -17,5 +17,5 @@ client/.env.native
 client/.env.keystore
 
 # Signing
-*.keystore
-*.jks
+# *.keystore
+# *.jks
