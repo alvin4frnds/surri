@@ -9,6 +9,7 @@ import IssueReportOverlay from './IssueReportOverlay.vue'
 import { toPng } from 'html-to-image'
 import RoundSummary from './RoundSummary.vue'
 import GameOverScreen from './GameOverScreen.vue'
+import ExplainLossOverlay from './ExplainLossOverlay.vue'
 
 const props = defineProps({
   gameState: { type: Object, required: true },
@@ -20,6 +21,7 @@ const emit = defineEmits(['game-action', 'leave'])
 const showTram = ref(false)
 const showRoundSummary = ref(false)
 const showDealing = ref(false)
+const showExplainLoss = ref(false)
 
 // Track phase transitions
 import { watch } from 'vue'
@@ -483,6 +485,18 @@ function onIssueSubmit({ description, screenshot }) {
       :tramResult="tramResult"
       :mySeat="mySeat"
       @continue="onRoundContinue"
+      @explain-loss="showExplainLoss = true"
+    />
+
+    <ExplainLossOverlay
+      v-if="showExplainLoss && tramResult && !tramResult.valid"
+      :completedTricks="gs?.completedTricks || []"
+      :handsAtTramCall="gs?.handsAtTramCall || null"
+      :tramResult="tramResult"
+      :trump="trump"
+      :seats="seats"
+      :mySeat="mySeat"
+      @close="showExplainLoss = false"
     />
 
     <!-- Game Over Screen -->

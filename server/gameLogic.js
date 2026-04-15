@@ -112,7 +112,8 @@ function validateTram(claimedCards, claimerSeat, hands, trump, bid, tricks) {
 
   const opponents = [0, 1, 2, 3].filter(s => (s % 2) !== (claimerSeat % 2));
 
-  for (const card of claimedCards) {
+  for (let ci = 0; ci < claimedCards.length; ci++) {
+    const card = claimedCards[ci];
     // Remove card from claimer's hand
     const idx = remainingHands[claimerSeat].indexOf(card);
     if (idx === -1) return { valid: false, reason: 'Card not in hand' };
@@ -132,7 +133,7 @@ function validateTram(claimedCards, claimerSeat, hands, trump, bid, tricks) {
         // Opponent must follow suit — can they beat the card?
         const bestInSuit = suitCards.reduce((best, c) => cardRank(c) > cardRank(best) ? c : best);
         if (cardRank(bestInSuit) > ledRank) {
-          return { valid: false, reason: `Opponent at seat ${opp} can beat ${card} in suit`, failSeat: opp, failHand: [...hands[opp]] };
+          return { valid: false, reason: `Opponent at seat ${opp} can beat ${card} in suit`, failSeat: opp, failHand: [...hands[opp]], failCard: bestInSuit, failClaimIndex: ci };
         }
         // Opponent follows but can't beat — remove their lowest card in suit
         // (worst case: conserves their higher cards for later)
@@ -144,7 +145,8 @@ function validateTram(claimedCards, claimerSeat, hands, trump, bid, tricks) {
         if (!isTrump) {
           const oppTrumps = oppHand.filter(c => cardSuit(c) === trump);
           if (oppTrumps.length > 0) {
-            return { valid: false, reason: `Opponent at seat ${opp} can trump ${card}`, failSeat: opp, failHand: [...hands[opp]] };
+            const bestTrump = oppTrumps.reduce((best, c) => cardRank(c) > cardRank(best) ? c : best);
+            return { valid: false, reason: `Opponent at seat ${opp} can trump ${card}`, failSeat: opp, failHand: [...hands[opp]], failCard: bestTrump, failClaimIndex: ci };
           }
         }
         // Led is trump and opponent has no trump — can't beat it
@@ -238,7 +240,7 @@ function validateTramDual(myCards, partnerCards, bidderSeat, hands, trump, activ
           const testTrick = [...trick, { seat, card: bestInSuit }];
           const testWinner = trickWinner(testTrick, trump);
           if (testWinner === seat) {
-            return { valid: false, reason: `Opponent at seat ${seat} can beat with ${bestInSuit}`, failSeat: seat, failHand: [...hands[seat]] };
+            return { valid: false, reason: `Opponent at seat ${seat} can beat with ${bestInSuit}`, failSeat: seat, failHand: [...hands[seat]], failCard: bestInSuit, failClaimIndex: i };
           }
           // Can't win — play lowest card to conserve
           const lowestInSuit = suitCards.reduce((low, c) => cardRank(c) < cardRank(low) ? c : low);
@@ -254,7 +256,7 @@ function validateTramDual(myCards, partnerCards, bidderSeat, hands, trump, activ
             const testTrick = [...trick, { seat, card: bestTrump }];
             const testWinner = trickWinner(testTrick, trump);
             if (testWinner === seat) {
-              return { valid: false, reason: `Opponent at seat ${seat} can trump with ${bestTrump}`, failSeat: seat, failHand: [...hands[seat]] };
+              return { valid: false, reason: `Opponent at seat ${seat} can trump with ${bestTrump}`, failSeat: seat, failHand: [...hands[seat]], failCard: bestTrump, failClaimIndex: i };
             }
             // Their trump doesn't win (teammate has higher trump) — play lowest trump
             const lowestTrump = oppTrumps.reduce((low, c) => cardRank(c) < cardRank(low) ? c : low);
@@ -355,6 +357,7 @@ class SurriGame {
     this.lastTrick = null;
     this.lastRoundResult = null;
     this.tramResult = null;
+    this.handsAtTramCall = null;
     this._tricksPlayed = 0;
     this.playedCards = [];
     this.voidSuits = { 0: new Set(), 1: new Set(), 2: new Set(), 3: new Set() };
@@ -776,6 +779,13 @@ class SurriGame {
     }
 
     const callerTeam = seat % 2;
+    // Snapshot all hands at the moment TRAM is called, for post-round slideshow
+    this.handsAtTramCall = {
+      0: [...this.hands[0]],
+      1: [...this.hands[1]],
+      2: [...this.hands[2]],
+      3: [...this.hands[3]],
+    };
     const useDual = this.bid >= 10 && seat === this.biddingSeat && partnerCards;
     const result = useDual
       ? validateTramDual(cards, partnerCards, seat, this.hands, this.trump, this.activeSeat)
@@ -811,6 +821,8 @@ class SurriGame {
       failReason: result.reason || null,
       failSeat: result.failSeat ?? null,
       failHand: result.failHand ?? null,
+      failCard: result.failCard ?? null,
+      failClaimIndex: result.failClaimIndex ?? null,
     };
 
     // Transition to scoring (which shows TRAM result + round summary)
@@ -1059,6 +1071,8 @@ class SurriGame {
 
       lastRoundResult: this.lastRoundResult,
       tramResult: this.tramResult,
+      completedTricks: this.phase === 'scoring' ? this.completedTricks : undefined,
+      handsAtTramCall: this.phase === 'scoring' ? (this.handsAtTramCall || null) : undefined,
     };
   }
 

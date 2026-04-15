@@ -8,7 +8,7 @@ const props = defineProps({
   mySeat: { type: Number, default: 0 },
 })
 
-const emit = defineEmits(['continue'])
+const emit = defineEmits(['continue', 'explain-loss'])
 
 const SUITS = { S: '♠', H: '♥', D: '♦', C: '♣' }
 
@@ -150,6 +150,13 @@ function myTeamWon() {
             <div class="text-xs text-slate-400 mb-1">{{ seatName(tramResult.failSeat) }}'s hand:</div>
             {{ sortedFailHand().map(formatCard).join(', ') }}
           </div>
+          <button
+            v-if="!tramResult.valid"
+            @click.stop="emit('explain-loss')"
+            class="w-full bg-red-800 hover:bg-red-700 text-white text-sm font-bold rounded-lg py-2 mt-2"
+          >
+            🔍 Explain Loss
+          </button>
         </div>
 
         <!-- Bid info -->
