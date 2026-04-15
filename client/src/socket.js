@@ -5,10 +5,17 @@ const SERVER_URL = import.meta.env.VITE_SERVER_URL ||
     ? `${window.location.protocol}//${window.location.hostname}:3000`
     : window.location.origin);
 
+function generateId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `p-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 function getOrCreatePlayerId() {
   let id = localStorage.getItem('surri_playerId');
   if (!id) {
-    id = crypto.randomUUID();
+    id = generateId();
     localStorage.setItem('surri_playerId', id);
   }
   return id;

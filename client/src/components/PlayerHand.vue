@@ -78,7 +78,7 @@ function fanStyle(index, total, card) {
     }
   }
 
-  const spacing = 18
+  const spacing = 22
   const totalWidth = (total - 1) * spacing
   const x = -totalWidth / 2 + index * spacing
   const isActive = hoveredIndex.value === index || selectedIndex.value === index
@@ -109,7 +109,7 @@ function cardSizeFor(card) {
 function containerHeight() {
   if (props.compact) return '80px'
   // Use smaller height on shorter screens
-  return window.innerHeight < 750 ? '100px' : '120px'
+  return window.innerHeight < 750 ? '118px' : '136px'
 }
 </script>
 

@@ -33,11 +33,11 @@ function cardImageUrl() {
 }
 
 function sizeClass() {
-  if (props.size === 'sm') return 'w-10 h-14'
-  if (props.size === 'xl') return 'w-20 h-28'
-  if (props.size === 'lg') return 'w-16 h-24'
-  if (props.small) return 'w-10 h-14'
-  return 'w-14 h-20' // md / default
+  if (props.size === 'sm') return 'w-10 h-[58px]'
+  if (props.size === 'xl') return 'w-24 h-[139px]'
+  if (props.size === 'lg') return 'w-20 h-[116px]'
+  if (props.small) return 'w-10 h-[58px]'
+  return 'w-14 h-[81px]' // md / default
 }
 
 function handleClick() {
@@ -73,7 +73,7 @@ function handleClick() {
       v-else-if="card"
       :src="cardImageUrl()"
       :alt="card"
-      class="w-full h-full object-contain"
+      class="w-full h-full object-contain card-zoom"
     />
   </div>
 </template>
@@ -95,5 +95,9 @@ function handleClick() {
 .card-playable {
   box-shadow: 0 0 8px rgba(74, 222, 128, 0.3);
   border-color: #4ade80;
+}
+.card-zoom {
+  transform: scale(1.35);
+  transform-origin: top left;
 }
 </style>
