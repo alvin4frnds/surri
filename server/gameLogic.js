@@ -400,6 +400,17 @@ class SurriGame {
     for (const play of this.currentTrick) {
       deck.push(play.card);
     }
+    if (deck.length !== 52) {
+      const missing = 52 - deck.length;
+      console.warn(
+        `[gameLogic] _gatherCards produced ${deck.length}/52 cards (missing ${missing}). ` +
+        `completedTricks=${this.completedTricks.length}, ` +
+        `hands=[${[0,1,2,3].map(s => (this.hands[s] || []).length).join(',')}], ` +
+        `currentTrick=${this.currentTrick.length}. Discarding — next deal will reshuffle.`
+      );
+      this._lastDeck = null;
+      return;
+    }
     this._lastDeck = deck;
   }
 
@@ -408,7 +419,7 @@ class SurriGame {
     if (this._isFirstDeal) {
       deck = cutShuffle(buildDeck(), 15);
       this._isFirstDeal = false;
-    } else if (this._lastDeck) {
+    } else if (this._lastDeck && this._lastDeck.length === 52) {
       const humanCount = this.seats.filter(s => !s.isBot).length;
       let cuts = 5;
       if (this._roundsWithoutBid10 > 5 && humanCount > 1) {
@@ -426,6 +437,26 @@ class SurriGame {
       for (let i = 0; i < 4; i++) {
         const seat = (this.dealer + 1 + i) % 4;
         hands[seat].push(deck[cardIdx++]);
+      }
+    }
+    // Sanity check: every seat should have 13 defined cards.
+    for (let s = 0; s < 4; s++) {
+      if (hands[s].length !== 13 || hands[s].some(c => c == null)) {
+        console.warn(
+          `[gameLogic] _deal produced invalid hand for seat ${s} ` +
+          `(len=${hands[s].length}, holes=${hands[s].filter(c => c == null).length}). Reshuffling.`
+        );
+        const fresh = cutShuffle(buildDeck(), 15);
+        const reset = { 0: [], 1: [], 2: [], 3: [] };
+        let idx = 0;
+        for (let c = 0; c < 13; c++) {
+          for (let i = 0; i < 4; i++) {
+            reset[(this.dealer + 1 + i) % 4].push(fresh[idx++]);
+          }
+        }
+        this.hands = reset;
+        this._lastDeck = null;
+        return;
       }
     }
     this.hands = hands;
