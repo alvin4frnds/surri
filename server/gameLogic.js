@@ -132,7 +132,7 @@ function validateTram(claimedCards, claimerSeat, hands, trump, bid, tricks) {
         // Opponent must follow suit — can they beat the card?
         const bestInSuit = suitCards.reduce((best, c) => cardRank(c) > cardRank(best) ? c : best);
         if (cardRank(bestInSuit) > ledRank) {
-          return { valid: false, reason: `Opponent at seat ${opp} can beat ${card} in suit` };
+          return { valid: false, reason: `Opponent at seat ${opp} can beat ${card} in suit`, failSeat: opp, failHand: [...hands[opp]] };
         }
         // Opponent follows but can't beat — remove their lowest card in suit
         // (worst case: conserves their higher cards for later)
@@ -144,7 +144,7 @@ function validateTram(claimedCards, claimerSeat, hands, trump, bid, tricks) {
         if (!isTrump) {
           const oppTrumps = oppHand.filter(c => cardSuit(c) === trump);
           if (oppTrumps.length > 0) {
-            return { valid: false, reason: `Opponent at seat ${opp} can trump ${card}` };
+            return { valid: false, reason: `Opponent at seat ${opp} can trump ${card}`, failSeat: opp, failHand: [...hands[opp]] };
           }
         }
         // Led is trump and opponent has no trump — can't beat it
@@ -238,7 +238,7 @@ function validateTramDual(myCards, partnerCards, bidderSeat, hands, trump, activ
           const testTrick = [...trick, { seat, card: bestInSuit }];
           const testWinner = trickWinner(testTrick, trump);
           if (testWinner === seat) {
-            return { valid: false, reason: `Opponent at seat ${seat} can beat with ${bestInSuit}` };
+            return { valid: false, reason: `Opponent at seat ${seat} can beat with ${bestInSuit}`, failSeat: seat, failHand: [...hands[seat]] };
           }
           // Can't win — play lowest card to conserve
           const lowestInSuit = suitCards.reduce((low, c) => cardRank(c) < cardRank(low) ? c : low);
@@ -254,7 +254,7 @@ function validateTramDual(myCards, partnerCards, bidderSeat, hands, trump, activ
             const testTrick = [...trick, { seat, card: bestTrump }];
             const testWinner = trickWinner(testTrick, trump);
             if (testWinner === seat) {
-              return { valid: false, reason: `Opponent at seat ${seat} can trump with ${bestTrump}` };
+              return { valid: false, reason: `Opponent at seat ${seat} can trump with ${bestTrump}`, failSeat: seat, failHand: [...hands[seat]] };
             }
             // Their trump doesn't win (teammate has higher trump) — play lowest trump
             const lowestTrump = oppTrumps.reduce((low, c) => cardRank(c) < cardRank(low) ? c : low);
@@ -809,6 +809,8 @@ class SurriGame {
       cards,
       partnerCards: partnerCards || null,
       failReason: result.reason || null,
+      failSeat: result.failSeat ?? null,
+      failHand: result.failHand ?? null,
     };
 
     // Transition to scoring (which shows TRAM result + round summary)

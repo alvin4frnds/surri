@@ -87,6 +87,20 @@ function formatCard(card) {
   return `${rank}${SUITS[suit] || suit}`
 }
 
+const RANK_ORDER = { '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, J: 11, Q: 12, K: 13, A: 14 }
+const SUIT_ORDER = { S: 0, H: 1, D: 2, C: 3 }
+
+function sortedFailHand() {
+  const hand = props.tramResult?.failHand
+  if (!hand || !hand.length) return []
+  return [...hand].sort((a, b) => {
+    const sa = SUIT_ORDER[a.slice(-1)] ?? 9
+    const sb = SUIT_ORDER[b.slice(-1)] ?? 9
+    if (sa !== sb) return sa - sb
+    return (RANK_ORDER[b.slice(0, -1)] || 0) - (RANK_ORDER[a.slice(0, -1)] || 0)
+  })
+}
+
 // Did my team win this round?
 function myTeamWon() {
   const r = props.lastRoundResult
@@ -131,6 +145,10 @@ function myTeamWon() {
           </div>
           <div v-if="!tramResult.valid && tramResult.failReason" class="text-center text-xs text-red-300">
             {{ tramResult.failReason }}
+          </div>
+          <div v-if="!tramResult.valid && tramResult.failHand && tramResult.failHand.length" class="text-center text-sm text-slate-200">
+            <div class="text-xs text-slate-400 mb-1">{{ seatName(tramResult.failSeat) }}'s hand:</div>
+            {{ sortedFailHand().map(formatCard).join(', ') }}
           </div>
         </div>
 
