@@ -19,3 +19,6 @@ client/.env.keystore
 # Signing
 # *.keystore
 # *.jks
+
+# Claude Code scratch (agent worktrees, ad-hoc scripts)
+.claude/worktrees/
