@@ -3,6 +3,7 @@ name: Deploy to Production
 on:
   push:
     branches: [master]
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -15,8 +16,19 @@ jobs:
           username: root
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
+            set -euo pipefail
             cd /var/www/html/surri2
-            git pull origin master
+            echo "Before: $(git rev-parse --short HEAD)"
+            git fetch origin master
+            git reset --hard origin/master
+            echo "After:  $(git rev-parse --short HEAD)"
             npm run install:all
-            cd client && npm run build && cd ..
+            cd client
+            npm run build
+            echo "Built assets:"
+            ls -la dist/assets/ | head
+            cd ..
             pm2 restart surri2
+            sleep 2
+            echo "Served asset:"
+            curl -fsS https://surri.xuresolutions.in/index.html | grep -oE 'index-[A-Za-z0-9_-]+\.js' | head -1
