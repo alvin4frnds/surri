@@ -289,3 +289,7 @@ Use the Claude-in-Chrome browser tool to load a 1-human + 3-bot game. Observe th
 | `docs/AILogic.md` | Document the fairness gate and bot-pair coordination behaviour |
 
 **No changes** to `gameLogic.js` serialization, `server.js` socket handlers, any client file, or any doc besides `AILogic.md`.
+
+## Changelog
+
+- 2026-04-22 01:57 tablet: Submitted review of 02-spec.md.
