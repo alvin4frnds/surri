@@ -292,3 +292,7 @@ Once implemented:
 | `client/src/components/GameBoard.vue` | Wire new emits to socket events |
 | `docs/GameFlow.md`, `docs/SocketAPI.md`, `docs/Board.md`, `docs/AILogic.md` | Doc updates |
 | `server/test-bidding.js` | New — unit-ish scenarios 9a–9k |
+
+## Changelog
+
+- 2026-04-22 01:54 tablet: Submitted review of 02-spec.md.
