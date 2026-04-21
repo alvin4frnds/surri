@@ -611,3 +611,7 @@ Add a "URL conventions" section: `/r/{CODE}` is the canonical room URL; `/join/{
 | `server/test-takeover.js` | new | Scenarios 6a–6k, harness-driven |
 
 **No changes** to: `gameLogic.js` (pure game rules unaffected), `nginx/surri2.conf` (SPA fallback already serves `/r/*` to `index.html`), Capacitor config, Firebase integration, deployment pipeline.
+
+## Changelog
+
+- 2026-04-22 02:08 tablet: Submitted review of 02-spec.md.
