@@ -1,6 +1,6 @@
 # Review — spec-003-pwa-offline-assets
-**Source:** 02-spec.md @ 1db696a85ca1e1b3938e25c54c757b37743626ad
-**Reviewed at:** 2026-04-22 00:52 local time
+**Source:** 02-spec.md @ f79a07652178faea8e9412f4219d5b9e71ba0d1c
+**Reviewed at:** 2026-04-22 01:04 local time
 
 ## Spatial references
 
@@ -49,50 +49,3 @@
 - Stroke group AQ → line 1
 - Stroke group AR → line 1
 - Stroke group AS → line 1
-- Stroke group AT → line 1
-- Stroke group AU → line 1
-- Stroke group AV → line 1
-- Stroke group AW → line 1
-- Stroke group AX → line 1
-- Stroke group AY → line 1
-- Stroke group AZ → line 1
-- Stroke group BA → line 1
-- Stroke group BB → line 1
-- Stroke group BC → line 1
-- Stroke group BD → line 1
-- Stroke group BE → line 1
-- Stroke group BF → line 1
-- Stroke group BG → line 1
-- Stroke group BH → line 1
-- Stroke group BI → line 1
-- Stroke group BJ → line 1
-- Stroke group BK → line 1
-- Stroke group BL → line 1
-- Stroke group BM → line 1
-- Stroke group BN → line 1
-- Stroke group BO → line 1
-- Stroke group BP → line 1
-- Stroke group BQ → line 1
-- Stroke group BR → line 1
-- Stroke group BS → line 1
-- Stroke group BT → line 1
-- Stroke group BU → line 1
-- Stroke group BV → line 1
-- Stroke group BW → line 1
-- Stroke group BX → line 1
-- Stroke group BY → line 1
-- Stroke group BZ → line 1
-- Stroke group CA → line 1
-- Stroke group CB → line 1
-- Stroke group CC → line 1
-- Stroke group CD → line 1
-- Stroke group CE → line 1
-- Stroke group CF → line 1
-- Stroke group CG → line 1
-- Stroke group CH → line 1
-- Stroke group CI → line 1
-- Stroke group CJ → line 1
-- Stroke group CK → line 1
-- Stroke group CL → line 1
-- Stroke group CM → line 1
-- Stroke group CN → line 1
