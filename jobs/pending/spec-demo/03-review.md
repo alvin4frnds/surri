@@ -1,6 +1,6 @@
 # Review — spec-demo
 **Source:** 02-spec.md @ ddfb18f8a7cc386b15ba7bf5c1658c774391aabd
-**Reviewed at:** 2026-04-21 19:59 local time
+**Reviewed at:** 2026-04-21 20:56 local time
 
 ## Answers to open questions
 
