@@ -433,3 +433,7 @@ After implementation:
 | `client/public/` | maybe move | Relocate icons from `client/assets/` if they're not currently shipped (see §9.2) |
 | `nginx/surri2.conf` | modify | Cache-control headers for SW files + hashed assets |
 | `docs/Board.md` | modify | Note the offline/reconnecting badge and update-banner UI |
+
+## Changelog
+
+- 2026-04-22 00:52 tablet: Submitted review of 02-spec.md.
