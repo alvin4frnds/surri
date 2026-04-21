@@ -583,3 +583,7 @@ Things the three design branches did that are **not** coming in with this spec. 
 - **Deletion of `InfoBar.vue` and `BidProgressBar.vue`.** All three branches deleted these as confirmed dead components. Leave them on master for now — file deletions aren't CSS-only and are safe to defer.
 
 Keep this list in mind: the spec deliberately ships a quieter, more portable subset of each direction. Users who want the full cinema/grain/monogram experience can be told "picking Late-Night or Salon gives you the palette and typography; the full direction ships in a later release."
+
+## Changelog
+
+- 2026-04-22 02:21 tablet: Submitted review of 02-spec.md.
