@@ -36,3 +36,4 @@ in two stages: opt-in beta first, then required after 30 days.
 ## Changelog
 
 - 2026-04-21 — seeded by GitMdScribe end-to-end test
+- 2026-04-21 22:03 tablet: Submitted review of 02-spec.md.
