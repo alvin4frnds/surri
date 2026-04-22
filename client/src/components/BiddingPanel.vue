@@ -174,10 +174,10 @@ watch(isMyTurn, (mine) => {
 </script>
 
 <template>
-  <div class="bg-slate-800 border border-slate-600 rounded-2xl overflow-hidden" style="box-shadow: 0 0 40px rgba(0,0,0,0.5)">
+  <div class="bg-[var(--app-surface)] border border-[var(--app-rule)] rounded-2xl overflow-hidden shadow-xl">
     <!-- Header -->
-    <div class="bg-slate-700 px-4 py-2.5 text-center">
-      <span class="font-bold text-white text-sm uppercase tracking-wider">
+    <div class="bg-[var(--app-surface-2)] px-4 py-2.5 text-center">
+      <span class="font-bold text-[var(--app-ink)] text-sm uppercase tracking-wider">
         {{ phase === 'partner_reveal' ? 'Partner Reveal'
            : phase === 'bidding_raise' ? 'Overbid'
            : isForced ? 'Forced Bid'
@@ -189,8 +189,8 @@ watch(isMyTurn, (mine) => {
     <div v-if="phase === 'partner_reveal'" class="p-3 space-y-3">
       <!-- Bidder controls -->
       <div v-if="biddingSeat === mySeat">
-        <div class="text-center text-slate-300 text-sm mb-2">
-          You bid <span class="font-bold text-white">{{ currentBid }}</span> — increase bid?
+        <div class="text-center text-[var(--app-muted)] text-sm mb-2">
+          You bid <span class="font-bold text-[var(--app-ink)] app-num">{{ currentBid }}</span> — increase bid?
         </div>
 
         <!-- Bid picker -->
@@ -198,40 +198,40 @@ watch(isMyTurn, (mine) => {
           <button
             @click="decreaseRevealBid"
             :disabled="revealBidValue() <= currentBid"
-            class="w-9 h-9 rounded-full bg-slate-700 hover:bg-slate-600 disabled:opacity-30 text-white font-bold text-lg flex items-center justify-center"
+            class="w-9 h-9 rounded-full bg-[var(--app-surface-2)] hover:brightness-125 disabled:opacity-30 text-[var(--app-ink)] font-bold text-lg flex items-center justify-center border border-[var(--app-rule)]"
           >&#x2039;</button>
 
-          <span class="text-xl font-bold text-white w-10 text-center">{{ revealBidValue() }}</span>
+          <span class="text-xl font-bold text-[var(--app-ink)] w-10 text-center app-num">{{ revealBidValue() }}</span>
 
           <button
             @click="increaseRevealBid"
             :disabled="revealBidValue() >= 13"
-            class="w-9 h-9 rounded-full bg-slate-700 hover:bg-slate-600 disabled:opacity-30 text-white font-bold text-lg flex items-center justify-center"
+            class="w-9 h-9 rounded-full bg-[var(--app-surface-2)] hover:brightness-125 disabled:opacity-30 text-[var(--app-ink)] font-bold text-lg flex items-center justify-center border border-[var(--app-rule)]"
           >&#x203A;</button>
         </div>
 
         <button
           @click="startPlay"
-          class="w-full bg-green-600 hover:bg-green-500 text-white font-bold rounded-lg py-2.5 transition-colors text-sm"
+          class="w-full bg-[var(--app-accent)] hover:brightness-110 text-[var(--app-accent-ink)] font-bold rounded-lg py-2.5 transition-colors text-sm"
         >
           START &#x25B6;
         </button>
       </div>
 
       <!-- Non-bidder waiting -->
-      <div v-else class="text-center text-slate-400 text-sm py-1">
+      <div v-else class="text-center text-[var(--app-muted)] text-sm py-1">
         Waiting for {{ bidderName() }} to start...
       </div>
     </div>
 
     <!-- RAISE WINDOW: another seat's turn -->
     <div v-else-if="phase === 'bidding_raise' && !isMyTurn" class="p-4">
-      <div class="text-slate-300 text-sm text-center mb-1">
-        Current bid: <span class="font-bold text-white">{{ currentBid }}</span>
+      <div class="text-[var(--app-muted)] text-sm text-center mb-1">
+        Current bid: <span class="font-bold text-[var(--app-ink)] app-num">{{ currentBid }}</span>
         <span :class="suitColor(currentTrump)">{{ SUITS[currentTrump] }}</span>
         by {{ bidderName() }}
       </div>
-      <div class="text-slate-400 text-xs text-center mb-3">
+      <div class="text-[var(--app-muted)] text-xs text-center mb-3">
         Waiting for {{ seatName(activeSeat) }} to raise or pass…
       </div>
 
@@ -239,10 +239,10 @@ watch(isMyTurn, (mine) => {
         <div
           v-for="(entry, i) in bidHistory"
           :key="i"
-          class="text-xs bg-slate-700 rounded-full px-3 py-1"
-          :class="entry.action === 'pass' || entry.action === 'pass_raise' ? 'text-slate-400'
-            : entry.action === 'raise' ? 'text-amber-300'
-            : 'text-green-300'"
+          class="text-xs bg-[var(--app-surface-2)] rounded-full px-3 py-1 border border-[var(--app-rule)]"
+          :class="entry.action === 'pass' || entry.action === 'pass_raise' ? 'text-[var(--app-muted)]'
+            : entry.action === 'raise' ? 'text-[var(--app-dealer)]'
+            : 'text-[var(--app-success)]'"
         >
           {{ seatName(entry.seat) }}: {{ historyLabel(entry) }}
         </div>
@@ -251,11 +251,11 @@ watch(isMyTurn, (mine) => {
 
     <!-- RAISE WINDOW: local player's turn (raise or pass) -->
     <div v-else-if="phase === 'bidding_raise' && isMyTurn" class="p-4 space-y-3">
-      <div class="text-slate-200 text-sm text-center font-medium">
+      <div class="text-[var(--app-ink)] text-sm text-center font-medium">
         Raise or pass?
       </div>
-      <div class="text-slate-400 text-xs text-center">
-        Current bid: <span class="font-bold text-slate-200">{{ currentBid }}</span>
+      <div class="text-[var(--app-muted)] text-xs text-center">
+        Current bid: <span class="font-bold text-[var(--app-ink)] app-num">{{ currentBid }}</span>
         <span :class="suitColor(currentTrump)">{{ SUITS[currentTrump] }}</span>
         by {{ bidderName() }}
       </div>
@@ -265,10 +265,10 @@ watch(isMyTurn, (mine) => {
         <div
           v-for="(entry, i) in bidHistory"
           :key="i"
-          class="text-xs bg-slate-700 rounded-full px-2 py-0.5"
-          :class="entry.action === 'pass' || entry.action === 'pass_raise' ? 'text-slate-400'
-            : entry.action === 'raise' ? 'text-amber-300'
-            : 'text-green-300'"
+          class="text-xs bg-[var(--app-surface-2)] rounded-full px-2 py-0.5 border border-[var(--app-rule)]"
+          :class="entry.action === 'pass' || entry.action === 'pass_raise' ? 'text-[var(--app-muted)]'
+            : entry.action === 'raise' ? 'text-[var(--app-dealer)]'
+            : 'text-[var(--app-success)]'"
         >
           {{ seatName(entry.seat) }}: {{ historyLabel(entry) }}
         </div>
@@ -277,16 +277,16 @@ watch(isMyTurn, (mine) => {
       <!-- Pass button -->
       <button
         @click="passRaise"
-        class="w-full bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium rounded-lg py-2 transition-colors"
+        class="w-full bg-[var(--app-surface-2)] hover:brightness-125 text-[var(--app-ink)] text-sm font-medium rounded-lg py-2 transition-colors border border-[var(--app-rule)]"
       >
         Pass
       </button>
 
       <!-- OR RAISE divider -->
       <div class="flex items-center gap-3">
-        <div class="flex-1 h-px bg-slate-600"></div>
-        <span class="text-slate-500 text-xs uppercase tracking-wider">or raise</span>
-        <div class="flex-1 h-px bg-slate-600"></div>
+        <div class="flex-1 h-px bg-[var(--app-rule)]"></div>
+        <span class="text-[var(--app-muted)] text-xs uppercase tracking-wider">or raise</span>
+        <div class="flex-1 h-px bg-[var(--app-rule)]"></div>
       </div>
 
       <!-- Suit selector (default: current trump) -->
@@ -299,8 +299,8 @@ watch(isMyTurn, (mine) => {
           :class="[
             suitColor(s),
             selectedSuit === s
-              ? 'bg-slate-600 border-white'
-              : 'bg-slate-800 border-slate-600 hover:border-slate-400'
+              ? 'bg-[var(--app-surface-2)] border-[var(--app-ink)]'
+              : 'bg-[var(--app-surface)] border-[var(--app-rule)] hover:border-[var(--app-muted)]'
           ]"
         >
           {{ SUITS[s] }}
@@ -311,16 +311,16 @@ watch(isMyTurn, (mine) => {
       <div class="flex items-center justify-center gap-4">
         <button
           @click="decreaseBid"
-          class="w-10 h-10 rounded-full bg-slate-700 hover:bg-slate-600 text-white font-bold text-xl flex items-center justify-center"
+          class="w-10 h-10 rounded-full bg-[var(--app-surface-2)] hover:brightness-125 text-[var(--app-ink)] font-bold text-xl flex items-center justify-center border border-[var(--app-rule)]"
         >&#x2039;</button>
 
-        <span class="text-2xl font-bold text-white w-20 text-center">
+        <span class="text-2xl font-bold text-[var(--app-ink)] w-20 text-center app-num">
           BID: {{ selectedBid ?? minBid }}
         </span>
 
         <button
           @click="increaseBid"
-          class="w-10 h-10 rounded-full bg-slate-700 hover:bg-slate-600 text-white font-bold text-xl flex items-center justify-center"
+          class="w-10 h-10 rounded-full bg-[var(--app-surface-2)] hover:brightness-125 text-[var(--app-ink)] font-bold text-xl flex items-center justify-center border border-[var(--app-rule)]"
         >&#x203A;</button>
       </div>
 
@@ -328,7 +328,7 @@ watch(isMyTurn, (mine) => {
       <button
         @click="confirmBid"
         :disabled="!selectedSuit"
-        class="w-full bg-amber-600 hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-lg py-3 transition-colors"
+        class="w-full bg-[var(--app-dealer)] hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-lg py-3 transition-colors"
       >
         RAISE
         <span v-if="selectedSuit">
@@ -339,33 +339,33 @@ watch(isMyTurn, (mine) => {
 
     <!-- BIDDING PHASE: another player's turn -->
     <div v-else-if="(phase === 'bidding' || phase === 'bidding_forced') && !isMyTurn" class="p-4">
-      <div class="text-slate-400 text-sm text-center mb-3">Bidding in progress...</div>
+      <div class="text-[var(--app-muted)] text-sm text-center mb-3">Bidding in progress...</div>
 
       <!-- Bid history bubbles -->
       <div class="flex flex-wrap gap-2 justify-center">
         <div
           v-for="(entry, i) in bidHistory"
           :key="i"
-          class="text-xs bg-slate-700 rounded-full px-3 py-1"
-          :class="entry.action === 'pass' ? 'text-slate-400' : 'text-green-300'"
+          class="text-xs bg-[var(--app-surface-2)] rounded-full px-3 py-1 border border-[var(--app-rule)]"
+          :class="entry.action === 'pass' ? 'text-[var(--app-muted)]' : 'text-[var(--app-success)]'"
         >
           {{ seatName(entry.seat) }}: {{ historyLabel(entry) }}
         </div>
       </div>
 
       <!-- Support signal response (partner asked for my support) -->
-      <div v-if="partnerAskedMe" class="mt-4 pt-3 border-t border-slate-600">
-        <div class="text-slate-300 text-sm text-center mb-3">{{ partnerName() }} asks for your support:</div>
+      <div v-if="partnerAskedMe" class="mt-4 pt-3 border-t border-[var(--app-rule)]">
+        <div class="text-[var(--app-muted)] text-sm text-center mb-3">{{ partnerName() }} asks for your support:</div>
         <div class="flex gap-2 justify-center">
           <button
             v-for="signal in ['Full', 'Major', 'Minor', 'Pass']"
             :key="signal"
             @click="giveSupport(signal)"
             class="flex-1 py-2 rounded-lg text-sm font-medium transition-colors"
-            :class="signal === 'Full' ? 'bg-blue-700 hover:bg-blue-600 text-white'
-              : signal === 'Major' ? 'bg-green-700 hover:bg-green-600 text-white'
-              : signal === 'Minor' ? 'bg-yellow-700 hover:bg-yellow-600 text-white'
-              : 'bg-slate-700 hover:bg-slate-600 text-slate-300'"
+            :class="signal === 'Full' ? 'bg-[var(--app-accent-2)] hover:brightness-110 text-white'
+              : signal === 'Major' ? 'bg-[var(--app-accent)] hover:brightness-110 text-[var(--app-accent-ink)]'
+              : signal === 'Minor' ? 'bg-[var(--app-dealer)] hover:brightness-110 text-white'
+              : 'bg-[var(--app-surface-2)] hover:brightness-125 text-[var(--app-ink)] border border-[var(--app-rule)]'"
           >
             {{ signal }}
           </button>
@@ -375,16 +375,16 @@ watch(isMyTurn, (mine) => {
 
     <!-- BIDDING PHASE: partner asked for support (I just need to respond) -->
     <div v-else-if="(phase === 'bidding' || phase === 'bidding_forced') && isSupportResponseOnly" class="p-4">
-      <div class="text-slate-300 text-sm text-center mb-3">{{ partnerName() }} asks for your support:</div>
+      <div class="text-[var(--app-muted)] text-sm text-center mb-3">{{ partnerName() }} asks for your support:</div>
       <div class="flex gap-2 justify-center">
         <button
           v-for="signal in ['Full', 'Major', 'Minor', 'Pass']"
           :key="signal"
           @click="giveSupport(signal)"
           class="flex-1 py-2 rounded-lg text-sm font-medium transition-colors"
-          :class="signal === 'Major' ? 'bg-green-700 hover:bg-green-600 text-white'
-            : signal === 'Minor' ? 'bg-yellow-700 hover:bg-yellow-600 text-white'
-            : 'bg-slate-700 hover:bg-slate-600 text-slate-300'"
+          :class="signal === 'Major' ? 'bg-[var(--app-accent)] hover:brightness-110 text-[var(--app-accent-ink)]'
+            : signal === 'Minor' ? 'bg-[var(--app-dealer)] hover:brightness-110 text-white'
+            : 'bg-[var(--app-surface-2)] hover:brightness-125 text-[var(--app-ink)] border border-[var(--app-rule)]'"
         >
           {{ signal }}
         </button>
@@ -393,15 +393,15 @@ watch(isMyTurn, (mine) => {
 
     <!-- BIDDING PHASE: local player's turn -->
     <div v-else-if="(phase === 'bidding' || phase === 'bidding_forced') && isMyTurn" class="p-4 space-y-3">
-      <div class="text-slate-200 text-sm text-center font-medium">Your turn to bid</div>
+      <div class="text-[var(--app-ink)] text-sm text-center font-medium">Your turn to bid</div>
 
       <!-- Bid history -->
       <div class="flex flex-wrap gap-1 justify-center">
         <div
           v-for="(entry, i) in bidHistory"
           :key="i"
-          class="text-xs bg-slate-700 rounded-full px-2 py-0.5"
-          :class="entry.action === 'pass' ? 'text-slate-400' : 'text-green-300'"
+          class="text-xs bg-[var(--app-surface-2)] rounded-full px-2 py-0.5 border border-[var(--app-rule)]"
+          :class="entry.action === 'pass' ? 'text-[var(--app-muted)]' : 'text-[var(--app-success)]'"
         >
           {{ seatName(entry.seat) }}: {{ historyLabel(entry) }}
         </div>
@@ -413,15 +413,15 @@ watch(isMyTurn, (mine) => {
           v-if="!isForced"
           @click="askSupport"
           :disabled="iAskedPartner"
-          class="flex-1 bg-blue-700 hover:bg-blue-600 disabled:opacity-40 text-white text-sm font-medium rounded-lg py-2 transition-colors"
+          class="flex-1 bg-[var(--app-accent-2)] hover:brightness-110 disabled:opacity-40 text-white text-sm font-medium rounded-lg py-2 transition-colors"
         >
           {{ iAskedPartner ? 'Asked' : 'Ask Partner' }}
         </button>
         <button
           @click="passBid"
           :disabled="isForced"
-          class="flex-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-medium rounded-lg py-2 transition-colors"
-          :class="isForced ? 'text-slate-500' : 'text-slate-200'"
+          class="flex-1 bg-[var(--app-surface-2)] hover:brightness-125 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-medium rounded-lg py-2 transition-colors border border-[var(--app-rule)]"
+          :class="isForced ? 'text-[var(--app-muted)]' : 'text-[var(--app-ink)]'"
         >
           {{ isForced ? 'Must Bid' : 'Pass' }}
         </button>
@@ -429,13 +429,13 @@ watch(isMyTurn, (mine) => {
 
       <!-- Support received display -->
       <div v-if="supportSignals[partnerSeat] != null" class="text-center text-xs">
-        <span class="text-slate-400">{{ partnerName() }} says: </span>
+        <span class="text-[var(--app-muted)]">{{ partnerName() }} says: </span>
         <span
           class="font-bold"
-          :class="supportSignals[partnerSeat] === 'Full' ? 'text-blue-400'
-            : supportSignals[partnerSeat] === 'Major' ? 'text-green-400'
-            : supportSignals[partnerSeat] === 'Minor' ? 'text-yellow-400'
-            : 'text-slate-400'"
+          :class="supportSignals[partnerSeat] === 'Full' ? 'text-[var(--app-accent-2)]'
+            : supportSignals[partnerSeat] === 'Major' ? 'text-[var(--app-success)]'
+            : supportSignals[partnerSeat] === 'Minor' ? 'text-[var(--app-dealer)]'
+            : 'text-[var(--app-muted)]'"
         >
           {{ supportSignals[partnerSeat] }}
         </span>
@@ -443,9 +443,9 @@ watch(isMyTurn, (mine) => {
 
       <!-- OR BID divider -->
       <div class="flex items-center gap-3">
-        <div class="flex-1 h-px bg-slate-600"></div>
-        <span class="text-slate-500 text-xs uppercase tracking-wider">or bid</span>
-        <div class="flex-1 h-px bg-slate-600"></div>
+        <div class="flex-1 h-px bg-[var(--app-rule)]"></div>
+        <span class="text-[var(--app-muted)] text-xs uppercase tracking-wider">or bid</span>
+        <div class="flex-1 h-px bg-[var(--app-rule)]"></div>
       </div>
 
       <!-- Suit selector -->
@@ -458,8 +458,8 @@ watch(isMyTurn, (mine) => {
           :class="[
             suitColor(s),
             selectedSuit === s
-              ? 'bg-slate-600 border-white'
-              : 'bg-slate-800 border-slate-600 hover:border-slate-400'
+              ? 'bg-[var(--app-surface-2)] border-[var(--app-ink)]'
+              : 'bg-[var(--app-surface)] border-[var(--app-rule)] hover:border-[var(--app-muted)]'
           ]"
         >
           {{ SUITS[s] }}
@@ -470,16 +470,16 @@ watch(isMyTurn, (mine) => {
       <div class="flex items-center justify-center gap-4">
         <button
           @click="decreaseBid"
-          class="w-10 h-10 rounded-full bg-slate-700 hover:bg-slate-600 text-white font-bold text-xl flex items-center justify-center"
+          class="w-10 h-10 rounded-full bg-[var(--app-surface-2)] hover:brightness-125 text-[var(--app-ink)] font-bold text-xl flex items-center justify-center border border-[var(--app-rule)]"
         >&#x2039;</button>
 
-        <span class="text-2xl font-bold text-white w-20 text-center">
+        <span class="text-2xl font-bold text-[var(--app-ink)] w-20 text-center app-num">
           BID: {{ selectedBid ?? minBid }}
         </span>
 
         <button
           @click="increaseBid"
-          class="w-10 h-10 rounded-full bg-slate-700 hover:bg-slate-600 text-white font-bold text-xl flex items-center justify-center"
+          class="w-10 h-10 rounded-full bg-[var(--app-surface-2)] hover:brightness-125 text-[var(--app-ink)] font-bold text-xl flex items-center justify-center border border-[var(--app-rule)]"
         >&#x203A;</button>
       </div>
 
@@ -487,7 +487,7 @@ watch(isMyTurn, (mine) => {
       <button
         @click="confirmBid"
         :disabled="!selectedSuit"
-        class="w-full bg-green-600 hover:bg-green-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-lg py-3 transition-colors"
+        class="w-full bg-[var(--app-accent)] hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed text-[var(--app-accent-ink)] font-bold rounded-lg py-3 transition-colors"
       >
         CONFIRM BID
         <span v-if="selectedSuit">

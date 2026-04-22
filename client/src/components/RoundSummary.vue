@@ -119,13 +119,13 @@ function myTeamWon() {
     @click="emit('continue')"
   >
     <div
-      class="w-full max-w-sm bg-slate-800 border border-slate-600 rounded-2xl overflow-hidden"
+      class="w-full max-w-sm bg-[var(--app-surface)] border border-[var(--app-rule)] rounded-2xl overflow-hidden"
       @click.stop
     >
       <!-- Header -->
       <div
         class="px-4 py-3 text-center font-bold"
-        :class="isBid13() ? 'bg-slate-700 text-slate-100' : myTeamWon() ? 'bg-green-900/60 text-green-200' : 'bg-red-900/60 text-red-200'"
+        :class="isBid13() ? 'bg-[var(--app-surface-2)] text-[var(--app-ink)]' : myTeamWon() ? 'bg-[var(--app-success)]/30 text-[var(--app-success)]' : 'bg-[var(--app-danger)]/30 text-[var(--app-danger)]'"
       >
         <template v-if="isBid13()">⚡ BID OF 13</template>
         <template v-else>{{ myTeamWon() ? 'ROUND WON' : 'ROUND LOST' }}</template>
@@ -133,27 +133,27 @@ function myTeamWon() {
 
       <div class="p-4 space-y-4">
         <!-- TRAM result (if any) -->
-        <div v-if="tramResult" class="bg-slate-700 rounded-xl p-3 space-y-2">
-          <div class="text-center font-bold text-lg" :class="tramResult.valid ? 'text-green-400' : 'text-red-400'">
+        <div v-if="tramResult" class="bg-[var(--app-surface-2)] rounded-xl p-3 space-y-2">
+          <div class="text-center font-bold text-lg" :class="tramResult.valid ? 'text-[var(--app-success)]' : 'text-[var(--app-danger)]'">
             {{ tramResult.valid ? '✓ TRAM SUCCESSFUL' : '✗ TRAM FAILED' }}
           </div>
-          <div class="text-center text-sm text-slate-300">
+          <div class="text-center text-sm text-[var(--app-muted)]">
             {{ tramCallerName() }} called TRAM
           </div>
-          <div v-if="tramResult.cards && tramResult.cards.length > 0" class="text-center text-sm text-slate-200">
+          <div v-if="tramResult.cards && tramResult.cards.length > 0" class="text-center text-sm text-[var(--app-ink)]">
             Cards: {{ tramResult.cards.map(formatCard).join(', ') }}
           </div>
-          <div v-if="!tramResult.valid && tramResult.failReason" class="text-center text-xs text-red-300">
+          <div v-if="!tramResult.valid && tramResult.failReason" class="text-center text-xs text-[var(--app-danger)]">
             {{ tramResult.failReason }}
           </div>
-          <div v-if="!tramResult.valid && tramResult.failHand && tramResult.failHand.length" class="text-center text-sm text-slate-200">
-            <div class="text-xs text-slate-400 mb-1">{{ seatName(tramResult.failSeat) }}'s hand:</div>
+          <div v-if="!tramResult.valid && tramResult.failHand && tramResult.failHand.length" class="text-center text-sm text-[var(--app-ink)]">
+            <div class="text-xs text-[var(--app-muted)] mb-1">{{ seatName(tramResult.failSeat) }}'s hand:</div>
             {{ sortedFailHand().map(formatCard).join(', ') }}
           </div>
           <button
             v-if="!tramResult.valid"
             @click.stop="emit('explain-loss')"
-            class="w-full bg-red-800 hover:bg-red-700 text-white text-sm font-bold rounded-lg py-2 mt-2"
+            class="w-full bg-[var(--app-danger)] hover:brightness-110 text-white text-sm font-bold rounded-lg py-2 mt-2"
           >
             🔍 Explain Loss
           </button>
@@ -161,42 +161,42 @@ function myTeamWon() {
 
         <!-- Bid info -->
         <div class="text-center">
-          <span class="text-slate-300">{{ seatName(lastRoundResult.biddingSeat) }} bid </span>
-          <span class="font-bold text-white text-lg">{{ lastRoundResult.bid }} {{ SUITS[lastRoundResult.trump] }}</span>
-          <div v-if="isBid13()" class="text-yellow-400 font-bold mt-1">ALL OR NOTHING</div>
+          <span class="text-[var(--app-muted)]">{{ seatName(lastRoundResult.biddingSeat) }} bid </span>
+          <span class="font-bold text-[var(--app-ink)] text-lg app-num">{{ lastRoundResult.bid }} {{ SUITS[lastRoundResult.trump] }}</span>
+          <div v-if="isBid13()" class="text-[var(--app-dealer)] font-bold mt-1">ALL OR NOTHING</div>
         </div>
 
         <!-- Tricks display -->
         <div class="space-y-2">
           <!-- Bidding team -->
           <div class="flex items-center justify-between">
-            <span class="text-sm text-slate-300">{{ bidderTeamNames() }}</span>
-            <span class="font-bold" :class="lastRoundResult.made ? 'text-green-400' : 'text-red-400'">
+            <span class="text-sm text-[var(--app-muted)]">{{ bidderTeamNames() }}</span>
+            <span class="font-bold app-num" :class="lastRoundResult.made ? 'text-[var(--app-success)]' : 'text-[var(--app-danger)]'">
               {{ lastRoundResult.biddingTeamTricks }} / {{ lastRoundResult.bid }}
             </span>
           </div>
 
           <!-- Bidding team progress bar -->
-          <div class="w-full bg-slate-700 rounded-full h-2">
+          <div class="w-full bg-[var(--app-surface-2)] rounded-full h-2">
             <div
               class="h-2 rounded-full"
-              :class="lastRoundResult.made ? 'bg-green-500' : 'bg-red-500'"
+              :class="lastRoundResult.made ? 'bg-[var(--app-success)]' : 'bg-[var(--app-danger)]'"
               :style="`width: ${Math.min(100, (lastRoundResult.biddingTeamTricks / lastRoundResult.bid) * 100)}%`"
             />
           </div>
 
           <!-- Defending team -->
           <div class="flex items-center justify-between">
-            <span class="text-sm text-slate-300">{{ defenderTeamNames() }}</span>
-            <span class="font-bold text-slate-200">
+            <span class="text-sm text-[var(--app-muted)]">{{ defenderTeamNames() }}</span>
+            <span class="font-bold text-[var(--app-ink)] app-num">
               {{ lastRoundResult.defendingTeamTricks }} / {{ defenseTarget() }}
             </span>
           </div>
 
           <!-- Defending team progress bar -->
-          <div class="w-full bg-slate-700 rounded-full h-2">
+          <div class="w-full bg-[var(--app-surface-2)] rounded-full h-2">
             <div
-              class="h-2 rounded-full bg-orange-500"
+              class="h-2 rounded-full bg-[var(--app-dealer)]"
               :style="`width: ${Math.min(100, (lastRoundResult.defendingTeamTricks / defenseTarget()) * 100)}%`"
             />
           </div>
@@ -206,49 +206,49 @@ function myTeamWon() {
         <div class="text-center">
           <span
             class="text-xl font-bold"
-            :class="myTeamWon() ? 'text-green-400' : 'text-red-400'"
+            :class="myTeamWon() ? 'text-[var(--app-success)]' : 'text-[var(--app-danger)]'"
           >
             {{ myTeamWon() ? '✓ YOU WON' : '✗ YOU LOST' }}
           </span>
-          <div class="text-xs text-slate-400 mt-0.5">
+          <div class="text-xs text-[var(--app-muted)] mt-0.5">
             {{ lastRoundResult.made ? 'Bid was made' : 'Bid failed' }}
           </div>
         </div>
 
         <!-- Score change (non-bid13) -->
-        <div v-if="!isBid13()" class="bg-slate-700 rounded-xl p-3 text-center">
-          <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">Score Change</div>
-          <div class="text-2xl font-bold text-slate-100">
+        <div v-if="!isBid13()" class="bg-[var(--app-surface-2)] rounded-xl p-3 text-center">
+          <div class="text-xs text-[var(--app-muted)] uppercase tracking-wider mb-1">Score Change</div>
+          <div class="text-2xl font-bold text-[var(--app-ink)] app-num">
             {{ lastRoundResult.newScore - lastRoundResult.scoreDelta }}
-            <span class="text-slate-400 mx-2">→</span>
-            <span :class="lastRoundResult.newScore >= 40 ? 'text-red-400' : 'text-white'">
+            <span class="text-[var(--app-muted)] mx-2">→</span>
+            <span :class="lastRoundResult.newScore >= 40 ? 'text-[var(--app-danger)]' : 'text-[var(--app-ink)]'">
               {{ lastRoundResult.newScore }}
             </span>
           </div>
-          <div class="text-sm mt-1" :class="lastRoundResult.scoreDelta >= 0 ? 'text-red-400' : 'text-green-400'">
+          <div class="text-sm mt-1 app-num" :class="lastRoundResult.scoreDelta >= 0 ? 'text-[var(--app-danger)]' : 'text-[var(--app-success)]'">
             {{ scorePrefix() }}
           </div>
         </div>
 
         <!-- Dealer change -->
-        <div v-if="lastRoundResult.dealerChanged" class="bg-slate-700 rounded-xl p-3 space-y-1">
-          <div class="text-yellow-400 font-bold text-center text-sm">⚠ DEALER CHANGE</div>
-          <div class="text-xs text-slate-300 text-center">{{ changeReason() }}</div>
+        <div v-if="lastRoundResult.dealerChanged" class="bg-[var(--app-surface-2)] rounded-xl p-3 space-y-1">
+          <div class="text-[var(--app-dealer)] font-bold text-center text-sm">⚠ DEALER CHANGE</div>
+          <div class="text-xs text-[var(--app-muted)] text-center">{{ changeReason() }}</div>
 
           <div v-if="loserSeat() != null" class="text-center text-sm">
-            <span class="text-red-400 font-bold">{{ loserName() }}</span>
-            <span class="text-slate-300"> takes a loss</span>
+            <span class="text-[var(--app-danger)] font-bold">{{ loserName() }}</span>
+            <span class="text-[var(--app-muted)]"> takes a loss</span>
           </div>
 
-          <div v-if="isBid13()" class="text-center text-xs text-slate-400">Score resets to 0</div>
+          <div v-if="isBid13()" class="text-center text-xs text-[var(--app-muted)]">Score resets to 0</div>
 
           <div class="text-center text-sm">
-            <span class="text-slate-400">New dealer: </span>
-            <span class="font-bold text-white">{{ newDealerName() }} 👑</span>
+            <span class="text-[var(--app-muted)]">New dealer: </span>
+            <span class="font-bold text-[var(--app-ink)]">{{ newDealerName() }} 👑</span>
           </div>
         </div>
 
-        <div v-else class="text-center text-xs text-slate-400">
+        <div v-else class="text-center text-xs text-[var(--app-muted)]">
           Dealer: {{ seatName(lastRoundResult.biddingSeat != null ? lastRoundResult.newDealer ?? lastRoundResult.biddingSeat : null) }}
         </div>
       </div>
@@ -257,14 +257,14 @@ function myTeamWon() {
       <div class="px-4 pb-4">
         <button
           @click="emit('continue')"
-          class="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-lg py-3 transition-colors"
+          class="w-full bg-[var(--app-surface-2)] hover:brightness-125 text-[var(--app-ink)] font-bold rounded-lg py-3 transition-colors border border-[var(--app-rule)]"
         >
           NEXT ROUND ▶
         </button>
       </div>
 
       <!-- Auto dismiss hint -->
-      <div class="text-center text-xs text-slate-600 pb-3">Tap anywhere to dismiss</div>
+      <div class="text-center text-xs text-[var(--app-muted)] pb-3 opacity-60">Tap anywhere to dismiss</div>
     </div>
   </div>
 </template>

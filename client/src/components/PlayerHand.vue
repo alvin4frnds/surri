@@ -115,7 +115,7 @@ function containerHeight() {
 
 <template>
   <div class="px-8 pb-3 pt-1">
-    <div v-if="label" class="text-xs text-slate-400 uppercase tracking-wider mb-1 px-1 text-center">{{ label }}</div>
+    <div v-if="label" class="text-xs text-[var(--app-muted)] uppercase tracking-wider mb-1 px-1 text-center">{{ label }}</div>
     <div class="relative w-full" :style="`height: ${containerHeight()};`" @mouseleave="hoveredIndex = -1; selectedIndex = -1">
       <div
         v-for="(card, index) in sorted(cards)"

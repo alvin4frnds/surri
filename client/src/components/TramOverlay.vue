@@ -114,16 +114,16 @@ function isRedCard(card) {
 <template>
   <div class="absolute inset-0 bg-black/80 z-40 flex flex-col">
     <!-- Header -->
-    <div class="flex items-center justify-between px-4 py-3 bg-slate-800 border-b border-slate-600">
-      <button @click="emit('close')" class="text-slate-400 hover:text-white text-xl font-bold">✕</button>
-      <span class="font-bold text-slate-100">TRAM CLAIM</span>
+    <div class="flex items-center justify-between px-4 py-3 bg-[var(--app-surface)] border-b border-[var(--app-rule)]">
+      <button @click="emit('close')" class="text-[var(--app-muted)] hover:text-[var(--app-ink)] text-xl font-bold">✕</button>
+      <span class="font-bold text-[var(--app-ink)]">TRAM CLAIM</span>
       <div class="w-6" />
     </div>
 
-    <div class="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+    <div class="flex-1 overflow-y-auto px-4 py-4 space-y-4 bg-[var(--app-bg)]">
       <!-- Info -->
-      <div class="bg-slate-800 border border-slate-600 rounded-xl p-4 text-sm text-slate-300 text-center">
-        You need <span class="font-bold text-white">{{ needed }}</span> more trick{{ needed !== 1 ? 's' : '' }} to close.
+      <div class="bg-[var(--app-surface)] border border-[var(--app-rule)] rounded-xl p-4 text-sm text-[var(--app-muted)] text-center">
+        You need <span class="font-bold text-[var(--app-ink)] app-num">{{ needed }}</span> more trick{{ needed !== 1 ? 's' : '' }} to close.
         <template v-if="showPartner">
           <br>Select {{ needed }} card{{ needed !== 1 ? 's' : '' }} from each hand in order.
         </template>
@@ -136,15 +136,15 @@ function isRedCard(card) {
       <template v-if="showPartner">
         <!-- My play order -->
         <div>
-          <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">Your Play Order</div>
+          <div class="text-xs text-[var(--app-muted)] uppercase tracking-wider mb-2">Your Play Order</div>
           <div class="flex gap-2 flex-wrap">
             <div
               v-for="i in needed"
               :key="'my-' + i"
               class="w-14 h-20 rounded-lg border-2 flex items-center justify-center"
               :class="mySelectedCards[i-1]
-                ? 'border-green-500 bg-slate-800 cursor-pointer'
-                : 'border-slate-600 bg-slate-900 border-dashed'"
+                ? 'border-[var(--app-accent)] bg-[var(--app-surface)] cursor-pointer'
+                : 'border-[var(--app-rule)] bg-[var(--app-surface-2)] border-dashed'"
               @click="mySelectedCards[i-1] ? removeMySlot(i-1) : null"
             >
               <div v-if="mySelectedCards[i-1]" class="text-center">
@@ -153,24 +153,24 @@ function isRedCard(card) {
                 >
                   {{ cardDisplay(mySelectedCards[i-1]) }}
                 </div>
-                <div class="text-[10px] text-slate-400 mt-1">tap ✕</div>
+                <div class="text-[10px] text-[var(--app-muted)] mt-1">tap ✕</div>
               </div>
-              <span v-else class="text-slate-500 text-sm">+{{ i }}</span>
+              <span v-else class="text-[var(--app-muted)] text-sm">+{{ i }}</span>
             </div>
           </div>
         </div>
 
         <!-- Partner play order -->
         <div>
-          <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">{{ partnerName }}'s Play Order</div>
+          <div class="text-xs text-[var(--app-muted)] uppercase tracking-wider mb-2">{{ partnerName }}'s Play Order</div>
           <div class="flex gap-2 flex-wrap">
             <div
               v-for="i in needed"
               :key="'partner-' + i"
               class="w-14 h-20 rounded-lg border-2 flex items-center justify-center"
               :class="partnerSelectedCards[i-1]
-                ? 'border-blue-500 bg-slate-800 cursor-pointer'
-                : 'border-slate-600 bg-slate-900 border-dashed'"
+                ? 'border-[var(--app-accent-2)] bg-[var(--app-surface)] cursor-pointer'
+                : 'border-[var(--app-rule)] bg-[var(--app-surface-2)] border-dashed'"
               @click="partnerSelectedCards[i-1] ? removePartnerSlot(i-1) : null"
             >
               <div v-if="partnerSelectedCards[i-1]" class="text-center">
@@ -179,9 +179,9 @@ function isRedCard(card) {
                 >
                   {{ cardDisplay(partnerSelectedCards[i-1]) }}
                 </div>
-                <div class="text-[10px] text-slate-400 mt-1">tap ✕</div>
+                <div class="text-[10px] text-[var(--app-muted)] mt-1">tap ✕</div>
               </div>
-              <span v-else class="text-slate-500 text-sm">+{{ i }}</span>
+              <span v-else class="text-[var(--app-muted)] text-sm">+{{ i }}</span>
             </div>
           </div>
         </div>
@@ -190,15 +190,15 @@ function isRedCard(card) {
       <!-- SINGLE MODE: One play order row (bid < 10) -->
       <template v-else>
         <div>
-          <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">Play Order</div>
+          <div class="text-xs text-[var(--app-muted)] uppercase tracking-wider mb-2">Play Order</div>
           <div class="flex gap-2 flex-wrap">
             <div
               v-for="i in needed"
               :key="i"
               class="w-14 h-20 rounded-lg border-2 flex items-center justify-center"
               :class="mySelectedCards[i-1]
-                ? 'border-green-500 bg-slate-800 cursor-pointer'
-                : 'border-slate-600 bg-slate-900 border-dashed'"
+                ? 'border-[var(--app-accent)] bg-[var(--app-surface)] cursor-pointer'
+                : 'border-[var(--app-rule)] bg-[var(--app-surface-2)] border-dashed'"
               @click="mySelectedCards[i-1] ? removeMySlot(i-1) : null"
             >
               <div v-if="mySelectedCards[i-1]" class="text-center">
@@ -207,9 +207,9 @@ function isRedCard(card) {
                 >
                   {{ cardDisplay(mySelectedCards[i-1]) }}
                 </div>
-                <div class="text-xs text-slate-400 mt-1">tap to remove</div>
+                <div class="text-xs text-[var(--app-muted)] mt-1">tap to remove</div>
               </div>
-              <span v-else class="text-slate-500 text-sm">+{{ i }}</span>
+              <span v-else class="text-[var(--app-muted)] text-sm">+{{ i }}</span>
             </div>
           </div>
         </div>
@@ -217,7 +217,7 @@ function isRedCard(card) {
 
       <!-- My hand -->
       <div>
-        <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">Your Hand</div>
+        <div class="text-xs text-[var(--app-muted)] uppercase tracking-wider mb-2">Your Hand</div>
         <div class="flex gap-1 flex-wrap">
           <div
             v-for="card in sorted(myHand)"
@@ -233,7 +233,7 @@ function isRedCard(card) {
 
       <!-- Partner hand (bid >= 10, I'm bidder) -->
       <div v-if="showPartner && partnerHand.length">
-        <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">
+        <div class="text-xs text-[var(--app-muted)] uppercase tracking-wider mb-2">
           {{ partnerName }}'s Hand
         </div>
         <div class="flex gap-1 flex-wrap">
@@ -251,11 +251,11 @@ function isRedCard(card) {
     </div>
 
     <!-- Claim button -->
-    <div class="px-4 py-4 bg-slate-900 border-t border-slate-700">
+    <div class="px-4 py-4 bg-[var(--app-surface)] border-t border-[var(--app-rule)]">
       <button
         @click="claimTram"
         :disabled="!canClaim"
-        class="w-full bg-green-600 hover:bg-green-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-lg py-3 transition-colors"
+        class="w-full bg-[var(--app-accent)] hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed text-[var(--app-accent-ink)] font-bold rounded-lg py-3 transition-colors"
       >
         CLAIM TRAM ▶
       </button>
