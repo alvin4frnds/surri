@@ -559,6 +559,48 @@ io.on('connection', (socket) => {
   });
 
   // -------------------------------------------------------------------------
+  // raise_bid — overbid during the bidding_raise window
+  // -------------------------------------------------------------------------
+  socket.on('raise_bid', async ({ bid, trump }) => {
+    try {
+      const info = socketToRoom.get(socket.id);
+      if (!info) return socket.emit('error', { message: 'Not in a room' });
+      const room = rooms.get(info.roomCode);
+      if (!room || !room.game) return socket.emit('error', { message: 'No game in progress' });
+
+      const result = room.game.raiseBid(info.seat, bid, trump);
+      if (!result.ok) return socket.emit('error', { message: result.error });
+
+      broadcastGameState(info.roomCode);
+      await runBotTurns(info.roomCode);
+    } catch (err) {
+      console.error('raise_bid error:', err);
+      socket.emit('error', { message: err.message });
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // pass_raise — pass during the bidding_raise window
+  // -------------------------------------------------------------------------
+  socket.on('pass_raise', async () => {
+    try {
+      const info = socketToRoom.get(socket.id);
+      if (!info) return socket.emit('error', { message: 'Not in a room' });
+      const room = rooms.get(info.roomCode);
+      if (!room || !room.game) return socket.emit('error', { message: 'No game in progress' });
+
+      const result = room.game.passRaise(info.seat);
+      if (!result.ok) return socket.emit('error', { message: result.error });
+
+      broadcastGameState(info.roomCode);
+      await runBotTurns(info.roomCode);
+    } catch (err) {
+      console.error('pass_raise error:', err);
+      socket.emit('error', { message: err.message });
+    }
+  });
+
+  // -------------------------------------------------------------------------
   // start_play
   // -------------------------------------------------------------------------
   socket.on('start_play', async () => {

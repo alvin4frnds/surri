@@ -203,6 +203,11 @@ class AIPlayer {
           return this._decideForcedBid();
         }
         break;
+      case 'bidding_raise':
+        if (game.activeSeat === seat) {
+          return this._decideRaise();
+        }
+        break;
       case 'partner_reveal':
         if (game.biddingSeat === seat) {
           return this._decideIncrease();
@@ -279,6 +284,29 @@ class AIPlayer {
       game.passBid(seat);
       return { action: 'pass_bid' };
     }
+  }
+
+  _decideRaise() {
+    const game = this.game;
+    const seat = this.seat;
+
+    if (game.activeSeat !== seat) return null;
+
+    const hand = game.hands[seat];
+    const { suit, estimate } = bestSuit(hand);
+    const currentBid = game.bid ?? 10;
+    const target = currentBid + 1;
+
+    // Raise only if this bot could have opened at (currentBid + 1) itself.
+    // Safer than padding; partner hand is not revealed yet.
+    if (target <= 13 && estimate >= target) {
+      const bidAmount = Math.min(Math.round(estimate), 13);
+      game.raiseBid(seat, Math.max(target, bidAmount), suit);
+      return { action: 'raise_bid', bid: Math.max(target, bidAmount), trump: suit };
+    }
+
+    game.passRaise(seat);
+    return { action: 'pass_raise' };
   }
 
   _decideForcedBid() {

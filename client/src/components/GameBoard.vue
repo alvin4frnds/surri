@@ -73,7 +73,8 @@ const tramResult = computed(() => gs.value?.tramResult)
 const dhaaps = computed(() => gs.value?.dhaaps ?? {})
 
 const isBidding = computed(() =>
-  phase.value === 'bidding' || phase.value === 'bidding_forced' || phase.value === 'partner_reveal'
+  phase.value === 'bidding' || phase.value === 'bidding_forced'
+    || phase.value === 'bidding_raise' || phase.value === 'partner_reveal'
 )
 const isPlaying = computed(() => phase.value === 'playing')
 const isScoring = computed(() => phase.value === 'scoring')
@@ -464,6 +465,8 @@ function onIssueSubmit({ description, screenshot }) {
         @place-bid="(p) => onBiddingAction('place_bid', p)"
         @pass-bid="onBiddingAction('pass_bid', {})"
         @increase-bid="(p) => onBiddingAction('increase_bid', p)"
+        @raise-bid="(p) => onBiddingAction('raise_bid', p)"
+        @pass-raise="onBiddingAction('pass_raise', {})"
         @start-play="onBiddingAction('start_play', {})"
       />
     </div>

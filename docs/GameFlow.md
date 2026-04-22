@@ -76,11 +76,28 @@ If all 4 players pass, the **first player** (left of dealer) is forced to bid **
 - If the forced bid is **8 or 9**: partner's hand is NOT revealed; bidder does NOT control partner's cards.
 - If the forced bid is **≥10**: treated as a normal ≥10 bid — partner hand reveal and control apply (see 3c).
 
-### 3c. Post-Bid — Partner Hand Reveal (bid ≥10 only)
+### 3c. Overbid Window (bid ≥10 only)
 
-If the bid is ≥10:
+When any player bids ≥10 — voluntary in round 1, or forced when all 4 passed — the game enters an **overbid window** (`phase: bidding_raise`). Each of the other three seats, in clockwise order starting from the first bidder's left, gets exactly **one** action:
 
-1. The **bidder's partner's hand** is revealed to **all players** (not just the bidder).
+- **Pass** — yield to the current bid.
+- **Raise** — bid at least `currentBid + 1`, pick any trump suit (same as current or different). The raiser becomes the new bidding team.
+
+A raise **does not reset the window** — the queue of three remaining seats continues clockwise. Each seat acts at most once per round, regardless of how many raises land.
+
+During the window:
+- The partner hand stays hidden from every client (clients see `partnerHand: null`).
+- Support signals, TRAM, etc. are unchanged (not applicable in this phase).
+
+When all three have acted, the window closes and the game transitions to **partner reveal** for the final bidder.
+
+If the bid is 8 or 9 (forced bid only), **no window opens** — the game goes straight to playing with no partner reveal.
+
+### 3d. Post-Window — Partner Hand Reveal (bid ≥10 only)
+
+Once the overbid window closes with a final bid ≥10:
+
+1. The **final bidder's partner's hand** is revealed to **all players** (not just the bidder).
 2. The bidder may **increase** their bid (never decrease) after seeing partner's hand.
 3. The bidder presses **"Start"** to begin the playing phase.
 4. During play, the **bidder selects which card the partner plays** each trick (full control of partner's hand).

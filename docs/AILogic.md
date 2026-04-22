@@ -74,6 +74,21 @@ The bot is forced to bid. It:
 3. Bids `max(8, min(best_estimate, 13))`.
 4. If `best_estimate >= 10`: the hand-reveal and partner-control rules kick in.
 
+### Overbid Window (bid_raise phase, partner hand not yet visible)
+
+When another seat has bid ≥10 and the bot is one of the three seats in the clockwise overbid window, `_decideRaise()` fires. The bot evaluates only its own hand (partner is not revealed) and decides to raise or pass.
+
+```
+target = currentBid + 1
+(suit, estimate) = bestSuit(own_hand)
+if estimate >= target and target <= 13:
+    raise to min(round(estimate), 13), trump = suit
+else:
+    pass
+```
+
+Heuristic: **only raise if the bot could have opened at (currentBid + 1) itself.** Deliberately conservative — partner's hand is unknown, so padding the estimate with optimistic partner support would be guessing. More aggressive strategies can come later.
+
 ### Bid Increase (after seeing partner's hand, bid ≥10)
 
 After seeing partner's hand, the bot re-evaluates with full knowledge of 26 cards:

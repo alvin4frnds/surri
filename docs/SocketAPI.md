@@ -20,6 +20,8 @@ Suits: `S H D C`
 | `give_support` | `{ signal: 'Major'\|'Minor'\|'Pass' }` | Partner asked for support |
 | `place_bid` | `{ bid, trump }` | Bidding, player's turn |
 | `pass_bid` | `{}` | Bidding, player's turn |
+| `raise_bid` | `{ bid, trump }` | Overbid window, player's turn |
+| `pass_raise` | `{}` | Overbid window, player's turn |
 | `increase_bid` | `{ bid }` | Partner reveal phase |
 | `start_play` | `{}` | Partner reveal phase (bidder only) |
 | `play_card` | `{ card }` | Playing phase, player's turn |
@@ -52,7 +54,7 @@ Server sends a **tailored state** per player (private hand data filtered per rec
 
 ```js
 {
-  phase: 'dealing' | 'bidding' | 'bidding_forced' | 'partner_reveal' | 'playing' | 'scoring',
+  phase: 'dealing' | 'bidding' | 'bidding_forced' | 'bidding_raise' | 'partner_reveal' | 'playing' | 'scoring',
 
   // Players
   seats: [{ name, isBot, isConnected, losses }],  // index = seat
@@ -66,7 +68,7 @@ Server sends a **tailored state** per player (private hand data filtered per rec
   bid: null | number,
   biddingSeat: null | number,
   biddingTeam: null | 0 | 1,   // team 0 = seats 0&2, team 1 = seats 1&3
-  bidHistory: [{ seat, action: 'bid'|'pass', bid?, trump? }],
+  bidHistory: [{ seat, action: 'bid'|'pass'|'raise'|'pass_raise', bid?, trump? }],
   supportSignals: { 0: null|'Major'|'Minor'|'Pass', 1: null, 2: null, 3: null },
   supportAsked: { 0: boolean, 1: boolean, 2: boolean, 3: boolean },
 

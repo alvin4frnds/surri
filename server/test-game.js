@@ -132,6 +132,12 @@ function handleGameState(state) {
     return;
   }
 
+  if (phase === 'bidding_raise') {
+    log(`Pass raise (bidder seat ${biddingSeat}, current bid ${bid}${trump})`);
+    socket.emit('pass_raise', {});
+    return;
+  }
+
   if (phase === 'partner_reveal') {
     if (biddingSeat === mySeat) {
       log('Starting play (partner reveal)');

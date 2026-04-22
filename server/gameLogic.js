@@ -320,6 +320,7 @@ class SurriGame {
     this.supportAsked = { 0: false, 1: false, 2: false, 3: false };
     this.pendingSupportRequest = null; // { asker: seat }
     this.activeSeat = null;
+    this.raiseSeatsRemaining = []; // seats still owed a turn in the overbid window
 
     this.tricks = { 0: 0, 1: 0, 2: 0, 3: 0 };
     this.currentTrick = [];
@@ -352,6 +353,7 @@ class SurriGame {
     this.supportSignals = { 0: null, 1: null, 2: null, 3: null };
     this.supportAsked = { 0: false, 1: false, 2: false, 3: false };
     this.pendingSupportRequest = null;
+    this.raiseSeatsRemaining = [];
     this.tricks = { 0: 0, 1: 0, 2: 0, 3: 0 };
     this.currentTrick = [];
     this.lastTrick = null;
@@ -521,15 +523,68 @@ class SurriGame {
     this.bidHistory.push({ seat, action: 'bid', bid, trump });
 
     if (bid >= 10) {
-      this.phase = 'partner_reveal';
-      this.activeSeat = seat;
+      // Open the overbid window — every other seat, clockwise from bidder,
+      // gets one chance to raise or pass before partner reveal fires.
+      this.phase = 'bidding_raise';
+      this.raiseSeatsRemaining = [1, 2, 3].map(n => (seat + n) % 4);
+      this.activeSeat = this.raiseSeatsRemaining[0];
     } else {
-      // bid 8 or 9 (forced only) — go straight to playing
+      // bid 8 or 9 (forced only) — go straight to playing, no window
       this.phase = 'playing';
       this.activeSeat = (this.dealer + 1) % 4;
     }
 
     return { ok: true };
+  }
+
+  raiseBid(seat, bid, trump) {
+    if (this.phase !== 'bidding_raise') {
+      return { ok: false, error: 'Not in raise window' };
+    }
+    if (this.activeSeat !== seat) {
+      return { ok: false, error: 'Not your turn' };
+    }
+    if (bid <= this.bid) {
+      return { ok: false, error: 'Bid must be greater than current bid' };
+    }
+    if (bid > 13) {
+      return { ok: false, error: 'Bid cannot exceed 13' };
+    }
+    if (!SUITS.includes(trump)) {
+      return { ok: false, error: 'Invalid trump suit' };
+    }
+
+    this.bid = bid;
+    this.trump = trump;
+    this.biddingSeat = seat;
+    this.biddingTeam = seat % 2;
+    this.bidHistory.push({ seat, action: 'raise', bid, trump });
+
+    this._advanceRaiseWindow();
+    return { ok: true };
+  }
+
+  passRaise(seat) {
+    if (this.phase !== 'bidding_raise') {
+      return { ok: false, error: 'Not in raise window' };
+    }
+    if (this.activeSeat !== seat) {
+      return { ok: false, error: 'Not your turn' };
+    }
+
+    this.bidHistory.push({ seat, action: 'pass_raise' });
+    this._advanceRaiseWindow();
+    return { ok: true };
+  }
+
+  _advanceRaiseWindow() {
+    this.raiseSeatsRemaining.shift();
+    if (this.raiseSeatsRemaining.length === 0) {
+      this.phase = 'partner_reveal';
+      this.activeSeat = this.biddingSeat;
+    } else {
+      this.activeSeat = this.raiseSeatsRemaining[0];
+    }
   }
 
   askSupport(seat) {
@@ -1055,7 +1110,11 @@ class SurriGame {
       lastTrick: this.lastTrick,
 
       myHand: [...(this.hands[seat] || [])],
-      partnerHand: (this.bid >= 10 && this.biddingSeat != null)
+      partnerHand: (
+        this.bid >= 10 &&
+        this.biddingSeat != null &&
+        (this.phase === 'partner_reveal' || this.phase === 'playing' || this.phase === 'scoring')
+      )
         ? [...(this.hands[(this.biddingSeat + 2) % 4] || [])]
         : null,
       handSizes: {

@@ -88,9 +88,21 @@ Same UI as above, but:
 - Bid number picker range: **8 to 13**.
 - Support button still available.
 
+### Phase 1c — Overbid Window (bid ≥10, other seats act)
+
+After any bid ≥10 lands, the bidding panel switches into **Overbid** mode for the other three seats (clockwise from the bidder). Each seat gets one action: **Pass** or **Raise**.
+
+- Header label: "Overbid".
+- Top strip: "Current bid: 10 ♠ by Alice" + "Waiting for Bob to raise or pass…" when it's not the local player's turn.
+- On the active seat's screen: **Pass** button (full-width), an "or raise" divider, a suit selector (defaulted to the current trump — saves a tap), a bid-number picker starting at `currentBid + 1`, and a **RAISE** confirm button in amber.
+- Bid history shows raises with an up-arrow prefix (⇧) in amber; pass-raises in slate-400.
+- Partner hand remains **hidden** on every client during this phase — it only flips face-up after the window closes.
+
+Window closes when all three seats have acted (whether they raised or passed). Control then passes to Phase 2 for the **final** bidder.
+
 ### Phase 2 — Partner Hand Reveal (bid ≥10 only)
 
-After a bid ≥10 is placed:
+After the overbid window closes with a final bid ≥10:
 
 1. **Partner's hand** is displayed face-up to **all players** (separate hand area above the board or overlaid).
 2. **Bid increase controls**: Bidder can raise the bid (10 → 11 → 12 → 13). Cannot decrease.

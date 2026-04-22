@@ -7,7 +7,7 @@ const props = defineProps({
   mySeat: { type: Number, required: true },
 })
 
-const emit = defineEmits(['ask-support', 'give-support', 'place-bid', 'pass-bid', 'increase-bid', 'start-play'])
+const emit = defineEmits(['ask-support', 'give-support', 'place-bid', 'pass-bid', 'increase-bid', 'start-play', 'raise-bid', 'pass-raise'])
 
 const SUITS = { S: '\u2660', H: '\u2665', D: '\u2666', C: '\u2663' }
 const SUIT_KEYS = ['S', 'H', 'D', 'C']
@@ -32,7 +32,12 @@ const revealedPartnerSeat = computed(() => biddingSeat.value != null ? (biddingS
 
 // Forced bid phase
 const isForced = computed(() => phase.value === 'bidding_forced')
-const minBid = computed(() => isForced.value ? 8 : 10)
+const isRaiseWindow = computed(() => phase.value === 'bidding_raise')
+const currentTrump = computed(() => props.gameState.trump)
+const minBid = computed(() => {
+  if (isRaiseWindow.value) return (currentBid.value ?? 10) + 1
+  return isForced.value ? 8 : 10
+})
 
 // Partner reveal bid picker
 const revealBid = ref(null)
@@ -80,7 +85,15 @@ function passBid() {
 function confirmBid() {
   if (!selectedSuit.value) return
   const effectiveBid = selectedBid.value ?? minBid.value
-  emit('place-bid', { bid: effectiveBid, trump: selectedSuit.value })
+  if (isRaiseWindow.value) {
+    emit('raise-bid', { bid: effectiveBid, trump: selectedSuit.value })
+  } else {
+    emit('place-bid', { bid: effectiveBid, trump: selectedSuit.value })
+  }
+}
+
+function passRaise() {
+  emit('pass-raise')
 }
 
 function decreaseBid() {
@@ -134,15 +147,28 @@ function seatName(seat) {
 
 function historyLabel(entry) {
   if (entry.action === 'pass') return 'Pass'
+  if (entry.action === 'pass_raise') return 'Pass raise'
   const sym = SUITS[entry.trump] || entry.trump
+  if (entry.action === 'raise') return `⇧ ${entry.bid} ${sym}`
   return `Bid ${entry.bid} ${sym}`
 }
 
-// Init reveal bid when entering partner_reveal
+// Init reveal bid when entering partner_reveal; default raise-window
+// picker to the current trump (per spec resolved-decision).
 import { watch } from 'vue'
 watch(phase, (newPhase) => {
   if (newPhase === 'partner_reveal') {
     initRevealBid()
+  }
+  if (newPhase === 'bidding_raise' && isMyTurn.value) {
+    selectedSuit.value = currentTrump.value
+    selectedBid.value = minBid.value
+  }
+})
+watch(isMyTurn, (mine) => {
+  if (mine && isRaiseWindow.value) {
+    if (!selectedSuit.value) selectedSuit.value = currentTrump.value
+    if (selectedBid.value == null) selectedBid.value = minBid.value
   }
 })
 </script>
@@ -152,7 +178,10 @@ watch(phase, (newPhase) => {
     <!-- Header -->
     <div class="bg-slate-700 px-4 py-2.5 text-center">
       <span class="font-bold text-white text-sm uppercase tracking-wider">
-        {{ phase === 'partner_reveal' ? 'Partner Reveal' : isForced ? 'Forced Bid' : 'Bidding' }}
+        {{ phase === 'partner_reveal' ? 'Partner Reveal'
+           : phase === 'bidding_raise' ? 'Overbid'
+           : isForced ? 'Forced Bid'
+           : 'Bidding' }}
       </span>
     </div>
 
@@ -193,6 +222,119 @@ watch(phase, (newPhase) => {
       <div v-else class="text-center text-slate-400 text-sm py-1">
         Waiting for {{ bidderName() }} to start...
       </div>
+    </div>
+
+    <!-- RAISE WINDOW: another seat's turn -->
+    <div v-else-if="phase === 'bidding_raise' && !isMyTurn" class="p-4">
+      <div class="text-slate-300 text-sm text-center mb-1">
+        Current bid: <span class="font-bold text-white">{{ currentBid }}</span>
+        <span :class="suitColor(currentTrump)">{{ SUITS[currentTrump] }}</span>
+        by {{ bidderName() }}
+      </div>
+      <div class="text-slate-400 text-xs text-center mb-3">
+        Waiting for {{ seatName(activeSeat) }} to raise or pass…
+      </div>
+
+      <div class="flex flex-wrap gap-2 justify-center">
+        <div
+          v-for="(entry, i) in bidHistory"
+          :key="i"
+          class="text-xs bg-slate-700 rounded-full px-3 py-1"
+          :class="entry.action === 'pass' || entry.action === 'pass_raise' ? 'text-slate-400'
+            : entry.action === 'raise' ? 'text-amber-300'
+            : 'text-green-300'"
+        >
+          {{ seatName(entry.seat) }}: {{ historyLabel(entry) }}
+        </div>
+      </div>
+    </div>
+
+    <!-- RAISE WINDOW: local player's turn (raise or pass) -->
+    <div v-else-if="phase === 'bidding_raise' && isMyTurn" class="p-4 space-y-3">
+      <div class="text-slate-200 text-sm text-center font-medium">
+        Raise or pass?
+      </div>
+      <div class="text-slate-400 text-xs text-center">
+        Current bid: <span class="font-bold text-slate-200">{{ currentBid }}</span>
+        <span :class="suitColor(currentTrump)">{{ SUITS[currentTrump] }}</span>
+        by {{ bidderName() }}
+      </div>
+
+      <!-- Bid history -->
+      <div class="flex flex-wrap gap-1 justify-center">
+        <div
+          v-for="(entry, i) in bidHistory"
+          :key="i"
+          class="text-xs bg-slate-700 rounded-full px-2 py-0.5"
+          :class="entry.action === 'pass' || entry.action === 'pass_raise' ? 'text-slate-400'
+            : entry.action === 'raise' ? 'text-amber-300'
+            : 'text-green-300'"
+        >
+          {{ seatName(entry.seat) }}: {{ historyLabel(entry) }}
+        </div>
+      </div>
+
+      <!-- Pass button -->
+      <button
+        @click="passRaise"
+        class="w-full bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium rounded-lg py-2 transition-colors"
+      >
+        Pass
+      </button>
+
+      <!-- OR RAISE divider -->
+      <div class="flex items-center gap-3">
+        <div class="flex-1 h-px bg-slate-600"></div>
+        <span class="text-slate-500 text-xs uppercase tracking-wider">or raise</span>
+        <div class="flex-1 h-px bg-slate-600"></div>
+      </div>
+
+      <!-- Suit selector (default: current trump) -->
+      <div class="flex gap-2 justify-center">
+        <button
+          v-for="s in SUIT_KEYS"
+          :key="s"
+          @click="selectedSuit = s"
+          class="w-14 h-12 rounded-xl text-2xl font-bold transition-colors border-2"
+          :class="[
+            suitColor(s),
+            selectedSuit === s
+              ? 'bg-slate-600 border-white'
+              : 'bg-slate-800 border-slate-600 hover:border-slate-400'
+          ]"
+        >
+          {{ SUITS[s] }}
+        </button>
+      </div>
+
+      <!-- Bid number picker -->
+      <div class="flex items-center justify-center gap-4">
+        <button
+          @click="decreaseBid"
+          class="w-10 h-10 rounded-full bg-slate-700 hover:bg-slate-600 text-white font-bold text-xl flex items-center justify-center"
+        >&#x2039;</button>
+
+        <span class="text-2xl font-bold text-white w-20 text-center">
+          BID: {{ selectedBid ?? minBid }}
+        </span>
+
+        <button
+          @click="increaseBid"
+          class="w-10 h-10 rounded-full bg-slate-700 hover:bg-slate-600 text-white font-bold text-xl flex items-center justify-center"
+        >&#x203A;</button>
+      </div>
+
+      <!-- Confirm -->
+      <button
+        @click="confirmBid"
+        :disabled="!selectedSuit"
+        class="w-full bg-amber-600 hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-lg py-3 transition-colors"
+      >
+        RAISE
+        <span v-if="selectedSuit">
+          to {{ selectedBid ?? minBid }} {{ SUITS[selectedSuit] }}
+        </span>
+      </button>
     </div>
 
     <!-- BIDDING PHASE: another player's turn -->
