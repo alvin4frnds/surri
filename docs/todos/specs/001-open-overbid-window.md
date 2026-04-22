@@ -1,6 +1,6 @@
 # Spec 001 — Open Overbid Window after Bid ≥10
 
-**Status**: Draft — awaiting review
+**Status**: Reviewed — approved, ready to implement
 **Authored**: 2026-04-19
 **Touches**: bidding flow, partner reveal timing, AI bid logic, `BiddingPanel.vue`
 
@@ -263,11 +263,11 @@ After window closes with final bidder seat 3 at 11 ♥, seat 3 uses the existing
 
 With `FAST_TEST=1 node server/test-game.js` and 4 bots, the new phase cannot deadlock — `_decideRaise()` must always either raise or pass. Run 3 full games; assert no timeouts, no stuck phases.
 
-## 10. Open Questions
+## 10. Resolved Decisions
 
-- **Ask-partner-for-support during raise window**: spec says no (raising seat has not asked in round 1, and re-asking mid-window adds UI complexity). Confirm the user wants this omitted.
-- **Should the bid-number picker in the raise window show the current bidder's chosen trump suit as default, or force an explicit pick?** Spec defaults to "explicit pick" (same as round 1), which is safer but one extra tap.
-- **Raising back to the same team**: if seat 1 (Team A) bids 10 and seat 3 (also Team A) raises to 11, is that legal? Current spec says yes — biddingTeam just stays 0. Confirm this is desired; an alternative is to restrict raises to the opposing team only.
+- **Ask-partner-for-support during raise window**: Omitted. The raising seat did not ask in round 1, and re-asking mid-window adds UI complexity with little payoff.
+- **Raise-window bid-picker trump default**: **Yes — default to the current bidder's chosen trump suit**. The raiser can still switch suits with one tap, but the common case (raise on the same trump) is one fewer tap.
+- **Raising back to the same team**: **Legal.** A seat may raise even if it shares a team with the current bidder. Very rare in practice but possible — `biddingTeam` just stays the same.
 
 ## 11. Verification
 

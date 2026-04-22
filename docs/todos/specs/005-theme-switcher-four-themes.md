@@ -1,6 +1,6 @@
 # Spec 005 — CSS-Only 4-Theme Switcher (Classic / Paper / Late-Night / Salon)
 
-**Status**: Draft — awaiting review
+**Status**: Reviewed — approved, with a screenshot-validation gate before merge
 **Authored**: 2026-04-19
 **Touches**: `client/src/style.css`, `client/index.html`, `client/src/main.js`, `client/src/theme.js` (new), `client/src/components/LobbyScreen.vue`, and class-attribute swaps in ~8 other `.vue` files. No server changes. No game-logic changes. No component structure changes.
 
@@ -428,6 +428,7 @@ Use these utility classes wherever a Vue template currently hardcodes the equiva
 
 ```js
 import { ref } from 'vue'
+import { logEvent } from './services/analytics.js'
 
 export const THEMES = [
   { id: 'classic',    label: 'Classic',    swatch: '#0f1b2d' },
@@ -447,9 +448,11 @@ export function useTheme() {
     THEMES,
     setTheme(id) {
       if (!IDS.includes(id)) return
+      if (theme.value === id) return
       theme.value = id
       document.documentElement.dataset.theme = id
       try { localStorage.setItem('surri_theme', id) } catch (_) {}
+      try { logEvent('theme_selected', { theme: id }) } catch (_) {}
     },
   }
 }
@@ -522,19 +525,20 @@ Manual checklist:
 - [ ] No hardcoded hex colors remain in any `.vue` file under `client/src/components/` (grep `#[0-9A-Fa-f]{6}` returns zero lines there — matches may survive in App.vue for gameplay-specific things like card suit glyphs and analytics blocks; those are ok).
 - [ ] `npm run build` succeeds in `client/`. Delta to dist CSS gzipped < 8 KB.
 - [ ] Compare against captured reference screenshots at `docs/design-refresh/screenshots/{minimal,modern,salon}/` — the implementation should visually match within ±10% (perfect pixel match is not the goal; theme fidelity is).
+- [ ] **Screenshot-matrix gate (load-bearing).** Capture fresh screenshots for **every theme × every screen**: Lobby, WaitingRoom, Bidding, PartnerReveal (bid ≥10), Playing (mid-trick), TramOverlay, RoundSummary, GameOver, HelpOverlay, ExplainLossOverlay, IssueReportOverlay. 4 themes × 11 screens = 44 shots. Save under `docs/design-refresh/screenshots/v1-shipping/<theme>/<screen>.png`. Reviewer must eyeball all 44 before merge — no screen may look broken or regressed in any theme. This is the primary sign-off criterion.
 - [ ] Capacitor `npm run cap:build` still succeeds; native AAB build (`./gradlew bundleRelease`) is clean.
 
 ---
 
-## 6. Open Questions
+## 6. Resolved Decisions
 
-1. **Should the default theme be "classic" or "salon"?** Classic is the "don't surprise anyone" choice. Salon scored highest in the presentation review (`docs/design-refresh/06-presentation.md`). Pick one.
-2. **Should non-Classic themes be labelled "beta" on the switcher?** Current design branches have known rough edges (Salon opponent seat rendering, per `06-presentation.md`). A small "beta" tag sets expectations.
-3. **Should theme selection fire an analytics event?** `services/analytics.js` exists; adding one `logEvent('theme_selected', { theme })` call is trivial and would let us see which themes players stick with.
-4. **Alpha banner colour on new themes.** Keep `bg-amber-700/90` hard-coded (banner is a universal "read this" signal) or re-skin per theme? Recommend keep hard-coded.
-5. **Should the switcher preview on hover?** I.e., hover to see the theme, click to commit. This is nice-to-have and adds ~30 LoC in `theme.js` (a `previewTheme` ref that doesn't persist). Probably overkill for v1 — flag for v2.
-6. **Switcher on waiting-room too?** Arguable yes (players may want to change mind before the game starts). Currently spec says lobby-only for simplicity. Reconsider after shipping.
-7. **Card-back per theme?** Spec says no (§3, gotcha 8). If we change our mind, each theme would need to define `--app-card-back-fill` / `--app-card-back-emblem` and `PlayerHand.vue` / `PlayerArea.vue` would need one `<div class="app-card-back">` instead of the current PNG. Not hard, but a real HTML change — breaks "CSS-only".
+1. **Default theme**: **Classic.** Don't surprise existing players. Opting into a new theme is explicit.
+2. **"Beta" label on non-Classic themes**: **Leave as is (no label)** for v1. Re-evaluate if users report confusion after shipping.
+3. **Analytics event on theme selection**: **Yes.** One line in `setTheme()`: `logEvent('theme_selected', { theme: id })`. Trivial and helps us see which themes players stick with.
+4. **Alpha banner colour**: **Keep hard-coded** `bg-amber-700/90`. It's a universal "read this" signal, not a theme decoration.
+5. **Hover preview on switcher**: **No, for v1.** Click-to-commit is fine. Revisit in v2 if users express interest.
+6. **Switcher on waiting-room**: **No, for v1.** Lobby-only keeps the scope tight; reconsider after shipping if users ask for it.
+7. **Card-back per theme**: **No.** Confirmed out of scope — would break the CSS-only constraint. Shared card-back across all four themes.
 
 ---
 

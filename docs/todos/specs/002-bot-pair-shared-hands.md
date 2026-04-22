@@ -1,6 +1,6 @@
 # Spec 002 — Bot-Pair Shared Hand Visibility for AI Decisions
 
-**Status**: Draft — awaiting review
+**Status**: Reviewed — approved, ready to implement
 **Authored**: 2026-04-19
 **Touches**: `server/aiPlayer.js` only (plus one gate helper in `gameLogic.js`)
 **Visibility**: **Server-internal — never leaks to client state.**
@@ -17,7 +17,7 @@ This is strictly fair (bots obey the same information rules as humans), but it m
 
 When **both seats on a team are bots**, each bot's server-side decision functions gain **read access to its partner's hand**. This is pure AI logic change — the server never emits partner-hand info to any client that wouldn't already receive it under existing rules.
 
-**Critical invariant**: the change must not alter `getStateFor(seat)` output for any seat, bot or human. Bots peek at `game.hands[partnerSeat]` directly from `aiPlayer.js`, which is a separate code path from state serialization.
+**Critical invariant** (strict — enforce in tests): the change must not alter `getStateFor(seat)` output for any seat, bot or human. Bots peek at `game.hands[partnerSeat]` directly from `aiPlayer.js`, which is a separate code path from state serialization. Any PR that touches `aiPlayer.js` peek logic MUST include or update the byte-equality snapshot test in §7e — this is load-bearing.
 
 ### 2a. Fairness gate
 
