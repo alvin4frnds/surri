@@ -217,6 +217,13 @@ export function applyUpdate() {
 
 A thin strip at the top of `App.vue` that renders when `onNeedRefresh` fires. Primary button: "Reload". Secondary: "Later". Matches existing slate-800 palette.
 
+**Feature-flagged (default off)**. The banner is hidden from the default build. Non-technical users (e.g. family members playing casually) should never see a "New version — Reload" strip; it confuses more than it helps. Instead, the new SW activates silently on the next natural page reload. Power users can opt in via env var at build time:
+
+```js
+// vite uses VITE_* env vars baked at build time
+const showUpdateBanner = import.meta.env.VITE_SHOW_UPDATE_BANNER === 'true';
+```
+
 App.vue wires it up:
 
 ```vue
@@ -225,6 +232,7 @@ import { ref, onMounted } from 'vue';
 import { onNeedRefresh, onOfflineReady, applyUpdate } from './services/sw-update.js';
 import UpdateBanner from './components/UpdateBanner.vue';
 
+const showUpdateBanner = import.meta.env.VITE_SHOW_UPDATE_BANNER === 'true';
 const hasUpdate = ref(false);
 const offlineReady = ref(false);
 
@@ -235,12 +243,14 @@ onMounted(() => {
 </script>
 
 <template>
-  <UpdateBanner v-if="hasUpdate" @reload="applyUpdate" @dismiss="hasUpdate = false" />
+  <UpdateBanner v-if="showUpdateBanner && hasUpdate" @reload="applyUpdate" @dismiss="hasUpdate = false" />
   <!-- existing game UI -->
 </template>
 ```
 
-`offlineReady` can trigger a one-time toast on first visit ("Surri is ready to work offline"). Optional — fine to drop if UI clutter.
+When the flag is off, a new SW version still activates — it just waits for the user to reload the page naturally (closing/reopening the PWA, or pulling to refresh). `applyUpdate` is never called in that mode.
+
+`offlineReady` can trigger a one-time toast on first visit ("Surri is ready to work offline"). Also gate this on `VITE_SHOW_UPDATE_BANNER` — same rationale, same audience.
 
 ### 4d. `client/src/socket.js` — surface connection state (optional companion)
 
@@ -253,7 +263,7 @@ socket.on('disconnect', () => connection.state = 'offline');
 socket.io.on('reconnect_attempt', () => connection.state = 'reconnecting');
 ```
 
-Badge renders as a 6 px dot in the corner; green/yellow/red. Nothing breaks in offline mode — the user simply can't submit game actions, and existing UI elements stay rendered because they're cache-served.
+The exported `connection` state drives §8's offline lobby rendering (buttons hidden, single "Offline — reconnecting…" message). No persistent badge / dot in the corner — §8 calls for hiding UI elements rather than decorating them with state indicators.
 
 ## 5. Nginx Change — `nginx/surri2.conf`
 
@@ -310,7 +320,17 @@ Verified from the current repo:
 | Static page | `public/privacy-policy.html` | 1 | tiny |
 | Vite output | `dist/assets/*.{js,css}` | N (build-dependent) | bundled; ~150–300 KB gzipped total |
 
-Total precache footprint well under 5 MB. Within budget for mobile.
+Total precache footprint well under 5 MB.
+
+**Hard budget: aim for ≤ 2 MB precache, total.** Reviewer emphasized keeping the footprint minimal — the precache list below should be audited before merge, not accepted as-is:
+
+- `includeAssets` lists `feature-graphic.{png,svg}`: **exclude** — it's a Play Store asset, never rendered in the app.
+- `vue.svg`: **exclude** unless it's referenced by a live component (grep first).
+- `icon.png` (192) and `icon-512.png`: keep — needed for install / home-screen.
+- Cards: keep all 67 — core gameplay needs them and they're small.
+- If the gzipped JS bundle grows past 400 KB, open a follow-up to code-split before shipping.
+
+Run `ls -lh client/dist/assets/` and `du -sh client/dist/cards/` after a build and record the numbers in the PR description.
 
 **Note on `client/assets/` vs `client/public/`**: Items in `client/assets/` (icon.png, icon-512.png, etc.) may not currently ship to `dist/` unless imported or placed in `public/`. **Before implementing** confirm: either move the icons into `client/public/` or reference them via `import` so Vite emits them. §9 Open Questions.
 
@@ -321,11 +341,16 @@ Precise user-visible behaviour after the first successful visit:
 1. User opens the app with no network.
 2. Service worker serves `index.html` + bundles + card images + icons.
 3. Vue app boots, analytics init silently no-ops (network blocked), UI renders the lobby.
-4. Connection badge shows **offline / reconnecting**.
-5. The "Create Room" / "Join Room" buttons remain tappable but show an inline error toast ("No connection — retry when online") when tapped, because socket.emit will queue with no ack.
-6. When network returns, socket.io auto-reconnects; badge flips green; user can continue (if they were mid-game with a `playerId` stored in `localStorage` — see `socket.js:19`, that reconnect path already works).
+4. A single "Offline — reconnecting…" message replaces the create/join buttons. No error toasts, no tappable-but-dead controls. If the user can't act, they shouldn't see buttons that suggest they can.
+5. When network returns, socket.io auto-reconnects; the lobby renders normally; user can continue (if they were mid-game with a `playerId` stored in `localStorage` — see `socket.js:19`, that reconnect path already works).
 
-Explicit **non-goal**: playing a full game offline. Game logic is server-authoritative. The user's sentence "all logic except socket should be done offline" is interpreted as: the app shell / UI / assets load offline; actual game flow still requires the socket. Confirm in §9.
+Design rules for offline UI (all load-bearing — the reviewer flagged "tabs should be invisible" and "lots of things wrong in this section" on the draft):
+
+- **Hide what doesn't work, don't disable it.** "Create Room" and "Join Room" buttons are not rendered while offline. Disabled buttons invite frustration; absent buttons read as "come back later."
+- **One message, not many.** A single offline state message, not a badge + a toast + a dead button.
+- **No "retry" buttons.** socket.io auto-reconnects; manual retry is noise. The user waits; the UI updates when the socket reconnects.
+
+Explicit **non-goal**: playing a full game offline. Game logic is server-authoritative. The app shell / UI / assets load offline; actual game flow still requires the socket.
 
 ## 9. Open Questions
 
