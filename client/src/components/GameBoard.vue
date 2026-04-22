@@ -198,7 +198,8 @@ async function onIssueClick() {
   // Capture screenshot BEFORE showing overlay (so the overlay scrim isn't in the screenshot)
   try {
     const target = document.querySelector('.game-capture-target') || document.body
-    issueScreenshot.value = await toPng(target, { backgroundColor: '#0f1b2d' })
+    const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--app-bg').trim() || '#0f1b2d'
+    issueScreenshot.value = await toPng(target, { backgroundColor: bgColor })
   } catch (err) {
     console.error('Screenshot capture failed:', err)
     issueScreenshot.value = null
@@ -236,7 +237,7 @@ function onIssueSubmit({ description, screenshot }) {
 </script>
 
 <template>
-  <div class="game-capture-target h-full w-full relative overflow-hidden" style="background: radial-gradient(ellipse at 50% 40%, #162d4a 0%, #0f1b2d 60%, #0a1220 100%)">
+  <div class="game-capture-target h-full w-full relative overflow-hidden bg-[var(--app-bg)]">
     <!-- Dealing animation -->
     <Transition name="deal-fade">
       <div v-if="showDealing" class="absolute inset-0 z-[25] flex items-center justify-center pointer-events-none">
@@ -254,7 +255,7 @@ function onIssueSubmit({ description, screenshot }) {
     >
       <span
         class="text-[180px] sm:text-[220px] leading-none select-none"
-        :class="['H','D'].includes(trump) ? 'text-red-400/[0.10]' : 'text-white/[0.10]'"
+        :class="['H','D'].includes(trump) ? 'text-red-400/[0.10]' : 'text-[var(--app-ink)]/[0.10]'"
       >
         {{ TRUMP_SYMBOLS[trump] }}
       </span>
@@ -264,21 +265,21 @@ function onIssueSubmit({ description, screenshot }) {
     <div class="absolute top-2 right-2 z-[22] flex flex-col gap-1.5 items-end">
       <button
         @click="onLeaveClick"
-        class="bg-slate-800/80 hover:bg-red-700 text-slate-400 hover:text-white text-xs rounded-lg px-2 py-1 transition-colors"
+        class="bg-[var(--app-surface)]/80 hover:bg-[var(--app-danger)] text-[var(--app-muted)] hover:text-white text-xs rounded-lg px-2 py-1 transition-colors border border-[var(--app-rule)]"
       >
         Quit game
       </button>
       <button
         v-if="isPlaying"
         @click="showGiveUpConfirm = true"
-        class="bg-red-900/60 hover:bg-red-800/80 text-red-300 text-xs font-medium rounded-lg px-3 py-1.5 transition-colors"
+        class="bg-[var(--app-danger)]/60 hover:bg-[var(--app-danger)]/80 text-white text-xs font-medium rounded-lg px-3 py-1.5 transition-colors"
       >
         Give Up
       </button>
       <button
         v-if="!issueSubmitted"
         @click="onIssueClick"
-        class="bg-slate-800/80 hover:bg-amber-700 text-slate-400 hover:text-white text-xs rounded-lg px-2 py-1 transition-colors"
+        class="bg-[var(--app-surface)]/80 hover:bg-[var(--app-dealer)] text-[var(--app-muted)] hover:text-white text-xs rounded-lg px-2 py-1 transition-colors border border-[var(--app-rule)]"
         title="Report an issue"
       >
         &#x26A0; Issue
@@ -378,15 +379,15 @@ function onIssueSubmit({ description, screenshot }) {
 
     <!-- Score badges (visible whenever bid exists) -->
     <div v-if="bid != null" class="absolute top-3 left-3 z-[11]">
-      <div class="bg-blue-600 border border-blue-400/30 rounded-xl px-2.5 py-1 text-center shadow-lg">
-        <span class="text-white font-black text-xl">{{ myTeamTricks }}</span>
-        <span class="text-blue-200 text-sm"> / {{ myTeamTarget }}</span>
+      <div class="bg-[var(--app-team-self)] border border-white/20 rounded-xl px-2.5 py-1 text-center shadow-lg">
+        <span class="text-white font-black text-xl app-num">{{ myTeamTricks }}</span>
+        <span class="text-white/80 text-sm"> / {{ myTeamTarget }}</span>
       </div>
     </div>
     <div v-if="bid != null" class="absolute top-[55%] right-2 z-10">
-      <div class="bg-red-600 border border-red-400/30 rounded-xl px-2.5 py-1 text-center shadow-lg">
-        <span class="text-white font-black text-xl">{{ oppTeamTricks }}</span>
-        <span class="text-red-200 text-sm"> / {{ oppTeamTarget }}</span>
+      <div class="bg-[var(--app-team-foe)] border border-white/20 rounded-xl px-2.5 py-1 text-center shadow-lg">
+        <span class="text-white font-black text-xl app-num">{{ oppTeamTricks }}</span>
+        <span class="text-white/80 text-sm"> / {{ oppTeamTarget }}</span>
       </div>
     </div>
 
@@ -417,30 +418,30 @@ function onIssueSubmit({ description, screenshot }) {
       <button
         v-if="(gs.currentTrick ?? []).length === 0"
         @click="showTram = true"
-        class="bg-slate-700/80 hover:bg-slate-600 text-white text-xs font-medium rounded-lg px-3 py-1.5 transition-colors"
+        class="bg-[var(--app-surface-2)]/80 hover:brightness-125 text-[var(--app-ink)] text-xs font-medium rounded-lg px-3 py-1.5 transition-colors border border-[var(--app-rule)]"
       >
         TRAM
       </button>
       <button
         v-if="!dhaaps[mySeat]"
         @click="onGameAction('declare_dhaap', {})"
-        class="bg-amber-700/80 hover:bg-amber-600 text-amber-100 text-xs font-medium rounded-lg px-3 py-1.5 transition-colors border border-amber-600/40"
+        class="bg-[var(--app-dealer)]/80 hover:bg-[var(--app-dealer)] text-white text-xs font-medium rounded-lg px-3 py-1.5 transition-colors border border-[var(--app-dealer)]/40"
       >
         Dhaap!
       </button>
     </div>
     <div v-if="isPlaying && (isPartnersTurn || (myTurn && activeSeat === mySeat))" class="absolute bottom-[15%] right-3 z-20">
-      <span v-if="isPartnersTurn" class="text-yellow-400 text-xs font-medium bg-slate-900/80 rounded px-2 py-1">
+      <span v-if="isPartnersTurn" class="text-[var(--app-dealer)] text-xs font-medium bg-black/60 rounded px-2 py-1">
         Play partner's card
       </span>
-      <span v-else class="text-yellow-400 text-xs font-medium bg-slate-900/80 rounded px-2 py-1">
+      <span v-else class="text-[var(--app-dealer)] text-xs font-medium bg-black/60 rounded px-2 py-1">
         Your turn
       </span>
     </div>
 
     <!-- My hand -->
     <div class="absolute bottom-0 left-0 right-0 z-20">
-      <div v-if="amRevealedPartner && isPlaying" class="px-3 pt-1 text-xs text-yellow-400 text-center">
+      <div v-if="amRevealedPartner && isPlaying" class="px-3 pt-1 text-xs text-[var(--app-dealer)] text-center">
         Your hand is revealed to all players
       </div>
       <PlayerHand
@@ -515,18 +516,18 @@ function onIssueSubmit({ description, screenshot }) {
     <!-- Leave confirmation dialog -->
     <!-- Give Up confirmation -->
     <div v-if="showGiveUpConfirm" class="absolute inset-0 bg-black/70 z-[30] flex items-center justify-center">
-      <div class="bg-slate-800 border border-slate-600 rounded-2xl p-5 max-w-[280px] text-center space-y-4">
-        <div class="text-white text-sm font-medium">Give up this round? All remaining tricks go to opponents.</div>
+      <div class="bg-[var(--app-surface)] border border-[var(--app-rule)] rounded-2xl p-5 max-w-[280px] text-center space-y-4">
+        <div class="text-[var(--app-ink)] text-sm font-medium">Give up this round? All remaining tricks go to opponents.</div>
         <div class="flex gap-3">
           <button
             @click="showGiveUpConfirm = false"
-            class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium rounded-lg py-2 transition-colors"
+            class="flex-1 bg-[var(--app-surface-2)] hover:brightness-125 text-[var(--app-ink)] text-sm font-medium rounded-lg py-2 transition-colors border border-[var(--app-rule)]"
           >
             Cancel
           </button>
           <button
             @click="onGiveUp"
-            class="flex-1 bg-red-600 hover:bg-red-500 text-white text-sm font-medium rounded-lg py-2 transition-colors"
+            class="flex-1 bg-[var(--app-danger)] hover:brightness-110 text-white text-sm font-medium rounded-lg py-2 transition-colors"
           >
             Give Up
           </button>
@@ -535,18 +536,18 @@ function onIssueSubmit({ description, screenshot }) {
     </div>
 
     <div v-if="showLeaveConfirm" class="absolute inset-0 bg-black/70 z-[30] flex items-center justify-center">
-      <div class="bg-slate-800 border border-slate-600 rounded-2xl p-5 max-w-[280px] text-center space-y-4">
-        <div class="text-white text-sm font-medium">You are the only human player. Leaving will end the game.</div>
+      <div class="bg-[var(--app-surface)] border border-[var(--app-rule)] rounded-2xl p-5 max-w-[280px] text-center space-y-4">
+        <div class="text-[var(--app-ink)] text-sm font-medium">You are the only human player. Leaving will end the game.</div>
         <div class="flex gap-3">
           <button
             @click="showLeaveConfirm = false"
-            class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium rounded-lg py-2 transition-colors"
+            class="flex-1 bg-[var(--app-surface-2)] hover:brightness-125 text-[var(--app-ink)] text-sm font-medium rounded-lg py-2 transition-colors border border-[var(--app-rule)]"
           >
             Stay
           </button>
           <button
             @click="onLeaveConfirmed"
-            class="flex-1 bg-red-600 hover:bg-red-500 text-white text-sm font-medium rounded-lg py-2 transition-colors"
+            class="flex-1 bg-[var(--app-danger)] hover:brightness-110 text-white text-sm font-medium rounded-lg py-2 transition-colors"
           >
             Quit game
           </button>

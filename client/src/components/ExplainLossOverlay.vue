@@ -178,35 +178,35 @@ function isDefeatingCard(play) {
 </script>
 
 <template>
-  <div class="absolute inset-0 bg-black/90 z-40 flex flex-col text-white">
+  <div class="absolute inset-0 bg-black/90 z-40 flex flex-col text-[var(--app-ink)]">
     <!-- Header -->
-    <div class="flex items-center justify-between px-4 py-3 bg-slate-800 border-b border-slate-700">
+    <div class="flex items-center justify-between px-4 py-3 bg-[var(--app-surface)] border-b border-[var(--app-rule)]">
       <div class="text-sm font-bold">Explain Loss</div>
-      <div class="text-xs text-slate-400">Step {{ stepIndex + 1 }} / {{ totalSteps }}</div>
+      <div class="text-xs text-[var(--app-muted)]">Step {{ stepIndex + 1 }} / {{ totalSteps }}</div>
       <button
         @click="emit('close')"
-        class="text-slate-300 hover:text-white px-2 py-1 text-sm"
+        class="text-[var(--app-muted)] hover:text-[var(--app-ink)] px-2 py-1 text-sm"
       >✕</button>
     </div>
 
     <!-- Caption -->
     <div
       class="px-4 py-2 text-center text-sm"
-      :class="frame?.isFail ? 'bg-red-900/60 text-red-200 font-bold' : 'bg-slate-900 text-slate-200'"
+      :class="frame?.isFail ? 'bg-[var(--app-danger)]/30 text-[var(--app-danger)] font-bold' : 'bg-[var(--app-surface-2)] text-[var(--app-ink)]'"
     >
       {{ frame?.caption || '' }}
     </div>
 
     <!-- Board -->
-    <div class="flex-1 relative overflow-hidden">
+    <div class="flex-1 relative overflow-hidden bg-[var(--app-bg)]">
       <!-- Trump indicator -->
-      <div v-if="trump" class="absolute top-2 right-2 text-xs text-slate-400">
-        Trump: <span class="text-yellow-300 font-bold">{{ SUITS[trump] }}</span>
+      <div v-if="trump" class="absolute top-2 right-2 text-xs text-[var(--app-muted)]">
+        Trump: <span class="text-[var(--app-dealer)] font-bold">{{ SUITS[trump] }}</span>
       </div>
 
       <!-- North -->
       <div class="absolute top-2 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 max-w-[92%]">
-        <div class="text-xs text-slate-300">{{ seatName(seatByPos('north')) }}</div>
+        <div class="text-xs text-[var(--app-muted)]">{{ seatName(seatByPos('north')) }}</div>
         <div class="flex flex-wrap justify-center gap-0.5">
           <Card
             v-for="c in sortHand(frame?.hands?.[seatByPos('north')] || [])"
@@ -219,7 +219,7 @@ function isDefeatingCard(play) {
 
       <!-- West -->
       <div class="absolute left-2 top-1/2 -translate-y-1/2 flex flex-col items-center gap-1 max-w-[38%]">
-        <div class="text-xs text-slate-300">{{ seatName(seatByPos('west')) }}</div>
+        <div class="text-xs text-[var(--app-muted)]">{{ seatName(seatByPos('west')) }}</div>
         <div class="flex flex-wrap justify-center gap-0.5">
           <Card
             v-for="c in sortHand(frame?.hands?.[seatByPos('west')] || [])"
@@ -232,7 +232,7 @@ function isDefeatingCard(play) {
 
       <!-- East -->
       <div class="absolute right-2 top-1/2 -translate-y-1/2 flex flex-col items-center gap-1 max-w-[38%]">
-        <div class="text-xs text-slate-300">{{ seatName(seatByPos('east')) }}</div>
+        <div class="text-xs text-[var(--app-muted)]">{{ seatName(seatByPos('east')) }}</div>
         <div class="flex flex-wrap justify-center gap-0.5">
           <Card
             v-for="c in sortHand(frame?.hands?.[seatByPos('east')] || [])"
@@ -246,7 +246,7 @@ function isDefeatingCard(play) {
       <!-- Center: trick cards being played -->
       <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
         <div class="flex flex-col items-center gap-1">
-          <div class="text-xs text-slate-400 uppercase tracking-wider">
+          <div class="text-xs text-[var(--app-muted)] uppercase tracking-wider">
             {{ frame?.phase === 'tram' ? 'TRAM' : 'Trick' }}
           </div>
           <div class="flex gap-1 items-center">
@@ -255,11 +255,11 @@ function isDefeatingCard(play) {
               :key="'t-' + idx"
               class="flex flex-col items-center gap-0.5"
             >
-              <div class="text-[10px] text-slate-400">{{ seatName(play.seat) }}</div>
-              <div :class="isDefeatingCard(play) ? 'ring-2 ring-red-500 rounded-lg' : ''">
+              <div class="text-[10px] text-[var(--app-muted)]">{{ seatName(play.seat) }}</div>
+              <div :class="isDefeatingCard(play) ? 'ring-2 ring-[var(--app-danger)] rounded-lg' : ''">
                 <Card :card="play.card" size="md" />
               </div>
-              <div v-if="isDefeatingCard(play)" class="text-[10px] text-red-400 font-bold">BEATS</div>
+              <div v-if="isDefeatingCard(play)" class="text-[10px] text-[var(--app-danger)] font-bold">BEATS</div>
             </div>
           </div>
         </div>
@@ -275,21 +275,21 @@ function isDefeatingCard(play) {
             size="sm"
           />
         </div>
-        <div class="text-xs text-slate-300">{{ seatName(seatByPos('south')) }} (you)</div>
+        <div class="text-xs text-[var(--app-muted)]">{{ seatName(seatByPos('south')) }} (you)</div>
       </div>
     </div>
 
     <!-- Nav -->
-    <div class="flex gap-2 p-3 bg-slate-800 border-t border-slate-700">
+    <div class="flex gap-2 p-3 bg-[var(--app-surface)] border-t border-[var(--app-rule)]">
       <button
         @click="prev"
         :disabled="stepIndex === 0"
-        class="flex-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-lg py-2"
+        class="flex-1 bg-[var(--app-surface-2)] hover:brightness-125 disabled:opacity-40 disabled:cursor-not-allowed text-[var(--app-ink)] font-bold rounded-lg py-2 border border-[var(--app-rule)]"
       >◀ Prev</button>
       <button
         @click="next"
         :disabled="stepIndex >= totalSteps - 1"
-        class="flex-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-lg py-2"
+        class="flex-1 bg-[var(--app-surface-2)] hover:brightness-125 disabled:opacity-40 disabled:cursor-not-allowed text-[var(--app-ink)] font-bold rounded-lg py-2 border border-[var(--app-rule)]"
       >Next ▶</button>
     </div>
   </div>

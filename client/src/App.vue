@@ -134,8 +134,8 @@ function onLeave() {
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#1a1a1a] flex items-center justify-center">
-    <div class="w-full max-w-[390px] h-[100dvh] max-h-[844px] relative overflow-hidden bg-[#0f1b2d] text-slate-200">
+  <div class="app-canvas min-h-screen flex items-center justify-center">
+    <div class="w-full max-w-[390px] h-[100dvh] max-h-[844px] relative overflow-hidden bg-[var(--app-bg)] text-[var(--app-ink)]">
       <LobbyScreen
         v-if="view === 'lobby'"
         :error="error"
@@ -163,12 +163,12 @@ function onLeave() {
     <!-- Maintenance overlay on disconnect -->
     <Transition name="toast-fade">
       <div v-if="disconnected" class="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center">
-        <div class="bg-[#1e293b] rounded-xl p-6 mx-4 text-center max-w-xs shadow-2xl border border-slate-600">
+        <div class="bg-[var(--app-surface)] rounded-xl p-6 mx-4 text-center max-w-xs shadow-2xl border border-[var(--app-rule)]">
           <div class="text-3xl mb-3">&#9888;</div>
-          <h2 class="text-lg font-bold text-white mb-2">Server Maintenance</h2>
-          <p class="text-slate-300 text-sm">The server is undergoing maintenance. It will be back shortly.</p>
+          <h2 class="text-lg font-bold text-[var(--app-ink)] mb-2">Server Maintenance</h2>
+          <p class="text-[var(--app-muted)] text-sm">The server is undergoing maintenance. It will be back shortly.</p>
           <div class="mt-4 flex justify-center">
-            <span class="inline-block w-5 h-5 border-2 border-slate-400 border-t-white rounded-full animate-spin"></span>
+            <span class="inline-block w-5 h-5 border-2 border-[var(--app-muted)] border-t-[var(--app-ink)] rounded-full animate-spin"></span>
           </div>
         </div>
       </div>
@@ -177,13 +177,13 @@ function onLeave() {
     <!-- Issue submitted overlay -->
     <Transition name="toast-fade">
       <div v-if="issueToast" class="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center" @click="dismissIssueToast">
-        <div class="bg-[#1e293b] rounded-xl p-6 mx-4 text-center max-w-xs shadow-2xl border border-slate-600" @click.stop>
+        <div class="bg-[var(--app-surface)] rounded-xl p-6 mx-4 text-center max-w-xs shadow-2xl border border-[var(--app-rule)]" @click.stop>
           <div class="text-3xl mb-3">&#10004;</div>
-          <h2 class="text-lg font-bold text-white mb-2">Issue Submitted!</h2>
-          <p class="text-slate-300 text-sm mb-3">Thanks for letting us know! You can track it here:</p>
-          <a href="https://github.com/alvin4frnds/surri/issues" target="_blank" class="text-blue-400 hover:text-blue-300 text-sm underline">github.com/alvin4frnds/surri/issues</a>
-          <p class="text-slate-400 text-xs mt-3">We'll get to it as soon as we can!</p>
-          <button @click="dismissIssueToast" class="mt-4 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg px-6 py-2 transition-colors">Got it</button>
+          <h2 class="text-lg font-bold text-[var(--app-ink)] mb-2">Issue Submitted!</h2>
+          <p class="text-[var(--app-muted)] text-sm mb-3">Thanks for letting us know! You can track it here:</p>
+          <a href="https://github.com/alvin4frnds/surri/issues" target="_blank" class="text-[var(--app-accent-2)] hover:brightness-125 text-sm underline">github.com/alvin4frnds/surri/issues</a>
+          <p class="text-[var(--app-muted)] text-xs mt-3">We'll get to it as soon as we can!</p>
+          <button @click="dismissIssueToast" class="mt-4 bg-[var(--app-accent-2)] hover:brightness-110 text-white text-sm font-medium rounded-lg px-6 py-2 transition-colors">Got it</button>
         </div>
       </div>
     </Transition>

@@ -1,5 +1,224 @@
 @import "tailwindcss";
 
-body { background: #0f1b2d; color: #e2e8f0; font-family: sans-serif; }
+/* -----------------------------------------------------------
+   Classic — the existing UI, extracted into theme tokens so
+   nothing changes for a user on the default theme.
+   ----------------------------------------------------------- */
+:root[data-theme="classic"] {
+  --app-bg:          #0f1b2d;
+  --app-surface:     #1e293b;
+  --app-surface-2:   #1a1a1a;
+  --app-ink:         #e2e8f0;
+  --app-muted:       #94a3b8;
+  --app-rule:        #475569;
+  --app-accent:      #16a34a;
+  --app-accent-ink:  #ffffff;
+  --app-accent-2:    #2563eb;
+  --app-danger:      #dc2626;
+  --app-team-self:   #3b82f6;
+  --app-team-foe:    #ef4444;
+  --app-dealer:      #f59e0b;
+  --app-success:     #22c55e;
+  --app-shadow:      0 4px 12px rgba(0, 0, 0, 0.35);
+  --app-radius-sm:   8px;
+  --app-radius-lg:   16px;
+  --app-font-ui:     ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
+                     Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --app-font-display: ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
+                      Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* -----------------------------------------------------------
+   Paper — near-monochrome, warm-brass accent.
+   ----------------------------------------------------------- */
+:root[data-theme="paper"] {
+  --app-bg:          #0E1116;
+  --app-surface:     #171B22;
+  --app-surface-2:   #1F252E;
+  --app-ink:         #ECEEF2;
+  --app-muted:       #8A919C;
+  --app-rule:        #262B34;
+  --app-accent:      #C9A24B;
+  --app-accent-ink:  #0E1116;
+  --app-accent-2:    #8FA5C2;
+  --app-danger:      #C7463C;
+  --app-team-self:   #C9A24B;
+  --app-team-foe:    #C7463C;
+  --app-dealer:      #C9A24B;
+  --app-success:     #6B9E6E;
+  --app-shadow:      0 2px 8px rgba(0, 0, 0, 0.55);
+  --app-radius-sm:   6px;
+  --app-radius-lg:   12px;
+  --app-font-ui:     'Inter', ui-sans-serif, system-ui, -apple-system,
+                     'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --app-font-display: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+/* -----------------------------------------------------------
+   Late-Night Card Room — aurora gradient, electric lime,
+   frosted-glass surfaces.
+   ----------------------------------------------------------- */
+:root[data-theme="late-night"] {
+  --app-bg:          #07070F;
+  --app-surface:     rgba(22, 24, 44, 0.72);
+  --app-surface-2:   rgba(32, 36, 60, 0.78);
+  --app-ink:         #F4F5FF;
+  --app-muted:       #A9ADCB;
+  --app-rule:        rgba(255, 255, 255, 0.08);
+  --app-accent:      #C3FF3A;
+  --app-accent-ink:  #0A0A14;
+  --app-accent-2:    #7A5CFF;
+  --app-danger:      #FF4F6D;
+  --app-team-self:   #3DD8FF;
+  --app-team-foe:    #FF5577;
+  --app-dealer:      #FFB84D;
+  --app-success:     #3DE58C;
+  --app-shadow:      0 20px 60px rgba(0, 0, 0, 0.55);
+  --app-radius-sm:   10px;
+  --app-radius-lg:   20px;
+  --app-font-ui:     'Inter', -apple-system, system-ui, sans-serif;
+  --app-font-display: 'Space Grotesk', -apple-system, system-ui, sans-serif;
+}
+
+/* -----------------------------------------------------------
+   Salon — warm parlour. Cream paper, antique brass,
+   Cormorant Garamond serif.
+   ----------------------------------------------------------- */
+:root[data-theme="salon"] {
+  --app-bg:          #F4EBDA;
+  --app-surface:     #FBF4E6;
+  --app-surface-2:   #ECDFC5;
+  --app-ink:         #2B2118;
+  --app-muted:       #8C7B66;
+  --app-rule:        #C7B590;
+  --app-accent:      #7A5C23;
+  --app-accent-ink:  #F4EBDA;
+  --app-accent-2:    #30563F;
+  --app-danger:      #7A2230;
+  --app-team-self:   #30563F;
+  --app-team-foe:    #7A2230;
+  --app-dealer:      #A8813A;
+  --app-success:     #30563F;
+  --app-shadow:      0 12px 28px -10px rgba(122, 92, 35, 0.22);
+  --app-radius-sm:   10px;
+  --app-radius-lg:   18px;
+  --app-font-ui:     'Inter', system-ui, -apple-system, 'Segoe UI',
+                     Roboto, sans-serif;
+  --app-font-display: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+}
+
+/* Body + html apply the theme tokens. */
+html, body {
+  background: var(--app-bg);
+  color: var(--app-ink);
+  font-family: var(--app-font-ui);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
 
 * { touch-action: manipulation; }
+
+/* Canvas: the outermost app frame. Classic/Paper/Salon: flat colour
+   via --app-bg. Late-Night: aurora gradient. */
+.app-canvas {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--app-bg);
+}
+:root[data-theme="late-night"] .app-canvas {
+  background:
+    radial-gradient(120% 80% at 50% 0%,
+      #2A1B6B 0%, #1B1140 22%, #0A1330 55%, #07070F 100%);
+}
+:root[data-theme="salon"] .app-canvas {
+  background:
+    var(--app-bg)
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/><feColorMatrix values='0 0 0 0 0.17  0 0 0 0 0.13  0 0 0 0 0.09  0 0 0 0.04 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  background-blend-mode: multiply;
+}
+
+/* Primary filled CTA — the single button treatment across themes. */
+.app-cta {
+  background: var(--app-accent);
+  color: var(--app-accent-ink);
+  font-family: var(--app-font-ui);
+  font-weight: 600;
+  border-radius: var(--app-radius-lg);
+  padding: 12px 20px;
+  box-shadow: var(--app-shadow);
+  border: 0;
+  transition: filter 140ms ease-out, transform 140ms ease-out;
+}
+.app-cta:hover:not(:disabled) { filter: brightness(1.06); }
+.app-cta:active:not(:disabled) { transform: translateY(1px); }
+.app-cta:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+:root[data-theme="late-night"] .app-cta {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 10px 24px rgba(195, 255, 58, 0.45);
+}
+
+/* Destructive CTA (Give Up confirmation, etc.) */
+.app-cta-danger {
+  background: var(--app-danger);
+  color: #FFFFFF;
+  font-family: var(--app-font-ui);
+  font-weight: 600;
+  border-radius: var(--app-radius-sm);
+  padding: 10px 16px;
+  border: 0;
+}
+
+/* Surface — modals, input backgrounds, pills. */
+.app-surface {
+  background: var(--app-surface);
+  color: var(--app-ink);
+  border: 1px solid var(--app-rule);
+  border-radius: var(--app-radius-lg);
+}
+:root[data-theme="late-night"] .app-surface {
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+}
+
+/* Small pill — chips, badges, "Pass" tags, "Asked" tags. */
+.app-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--app-rule);
+  background: var(--app-surface);
+  color: var(--app-muted);
+  border-radius: var(--app-radius-sm);
+  font-family: var(--app-font-ui);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Hairline horizontal rule. */
+.app-rule {
+  height: 1px;
+  background: var(--app-rule);
+  border: 0;
+  margin: 10px 0;
+  width: 100%;
+}
+
+/* Classic has no display-font distinction from UI-font; the other
+   three want big numerics in the display face. */
+.app-num {
+  font-family: var(--app-font-display);
+}
+:root[data-theme="salon"] .app-num {
+  font-feature-settings: "onum" 1, "lnum" 0;
+  font-weight: 500;
+}
+
+/* Reduced motion — respect in all themes. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 120ms !important;
+    transition-duration: 120ms !important;
+  }
+}

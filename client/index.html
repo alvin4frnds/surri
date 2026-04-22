@@ -13,6 +13,23 @@
       gtag('js', new Date());
       gtag('config', 'G-3DPJEZ2F1X');
     </script>
+    <!-- Theme fonts: loaded once for all themes; Classic uses system fonts. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&display=swap" />
+    <!-- FOUC guard: set theme attribute synchronously before CSS paints. -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('surri_theme');
+          var allowed = ['classic', 'paper', 'late-night', 'salon'];
+          if (!t || allowed.indexOf(t) === -1) t = 'classic';
+          document.documentElement.dataset.theme = t;
+        } catch (e) {
+          document.documentElement.dataset.theme = 'classic';
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="app"></div>

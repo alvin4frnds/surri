@@ -92,8 +92,8 @@ const isVerticalStack = props.position === 'west' || props.position === 'east'
     <div
       class="border rounded-xl px-3 py-2 text-center min-w-[72px]"
       :class="[
-        isActive ? 'ring-2 ring-yellow-400' : '',
-        isDealer ? 'bg-red-900/30 border-red-700/50' : 'bg-slate-800 border-slate-600',
+        isActive ? 'ring-2 ring-[var(--app-dealer)]' : '',
+        isDealer ? 'bg-[var(--app-danger)]/20 border-[var(--app-danger)]/50' : 'bg-[var(--app-surface)] border-[var(--app-rule)]',
         !seatData?.isConnected && !seatData?.isTempBot && seatData ? 'opacity-50' : '',
       ]"
     >
@@ -104,16 +104,16 @@ const isVerticalStack = props.position === 'west' || props.position === 'east'
         <span v-else-if="!seatData?.isConnected && seatData" class="text-sm">🤖</span>
         <span v-else class="text-sm">👤</span>
 
-        <span class="text-xs font-medium text-slate-200 truncate max-w-[60px]">
+        <span class="text-xs font-medium text-[var(--app-ink)] truncate max-w-[60px]">
           {{ seatData?.name || '...' }}
         </span>
 
-        <span v-if="isSouth" class="text-green-400 text-xs">(you)</span>
-        <span v-if="isDealer" class="text-yellow-400 text-xs">👑</span>
+        <span v-if="isSouth" class="text-[var(--app-accent)] text-xs">(you)</span>
+        <span v-if="isDealer" class="text-[var(--app-dealer)] text-xs">👑</span>
       </div>
 
       <!-- Dealer score (shown on dealer OR when showScoreBadge is set) -->
-      <div v-if="isDealer || showScoreBadge" class="text-xs text-yellow-400 font-bold mt-0.5">
+      <div v-if="isDealer || showScoreBadge" class="text-xs text-[var(--app-dealer)] font-bold mt-0.5 app-num">
         Score: {{ dealerScore }}
       </div>
 
@@ -124,14 +124,14 @@ const isVerticalStack = props.position === 'west' || props.position === 'east'
           :key="i"
           class="w-2.5 h-2.5 rounded-full border"
           :class="i <= teamTricksWon
-            ? (isMyTeam ? 'bg-blue-400 border-blue-400' : 'bg-red-400 border-red-400')
-            : 'bg-transparent border-slate-500'"
+            ? (isMyTeam ? 'bg-[var(--app-team-self)] border-[var(--app-team-self)]' : 'bg-[var(--app-team-foe)] border-[var(--app-team-foe)]')
+            : 'bg-transparent border-[var(--app-muted)]'"
         />
       </div>
 
       <!-- Losses -->
       <div v-if="losses > 0" class="mt-1">
-        <span class="bg-red-700 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">
+        <span class="bg-[var(--app-danger)] text-white text-xs rounded-full px-1.5 py-0.5 font-bold">
           {{ losses }}
         </span>
       </div>
