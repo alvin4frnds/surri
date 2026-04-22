@@ -1,6 +1,6 @@
 # Spec 001 — Open Overbid Window after Bid ≥10
 
-**Status**: Draft — awaiting review
+**Status**: Reviewed — approved, ready to implement
 **Authored**: 2026-04-19
 **Touches**: bidding flow, partner reveal timing, AI bid logic, `BiddingPanel.vue`
 

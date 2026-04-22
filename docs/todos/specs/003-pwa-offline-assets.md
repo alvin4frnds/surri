@@ -1,6 +1,6 @@
 # Spec 003 — Progressive Web App with Full Offline Assets
 
-**Status**: Draft — awaiting review
+**Status**: Reviewed — revisions incorporated, ready to implement
 **Authored**: 2026-04-19
 **Touches**: `client/` build pipeline, `client/index.html`, new service worker + manifest, `nginx/surri2.conf`
 **Capacitor**: no regressions — service worker is disabled inside the Android wrapper
