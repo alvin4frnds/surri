@@ -23,3 +23,6 @@ client/.env.keystore
 # Claude Code scratch (agent worktrees, ad-hoc scripts)
 .claude/worktrees/
 .claude-jobs/
+
+# Local release artifacts (AAB/APK); uploaded to Play Console manually
+release/
