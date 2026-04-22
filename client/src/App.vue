@@ -1,11 +1,31 @@
 <script setup>
-import { ref } from 'vue'
-import { socket } from './socket.js'
+import { ref, onMounted } from 'vue'
+import { socket, connection } from './socket.js'
 import { logEvent, setUserId } from './services/analytics.js'
+import { onNeedRefresh, onOfflineReady, applyUpdate } from './services/sw-update.js'
 import LobbyScreen from './components/LobbyScreen.vue'
 import WaitingRoom from './components/WaitingRoom.vue'
 import GameBoard from './components/GameBoard.vue'
 import HelpOverlay from './components/HelpOverlay.vue'
+import UpdateBanner from './components/UpdateBanner.vue'
+
+// Feature flag: non-technical users should not see "New version — Reload"
+// strips. Default off; set VITE_SHOW_UPDATE_BANNER=true at build time
+// to enable for power users. When off, the new SW still activates — it
+// just waits for the user to reload naturally.
+const showUpdateBanner = import.meta.env.VITE_SHOW_UPDATE_BANNER === 'true'
+const hasUpdate = ref(false)
+
+onMounted(() => {
+  if (showUpdateBanner) {
+    onNeedRefresh(() => { hasUpdate.value = true })
+    onOfflineReady(() => { /* no-op: UI is intentionally quiet */ })
+  }
+})
+
+function onReloadForUpdate() {
+  applyUpdate()
+}
 
 const roomState = ref(null)
 const gameState = ref(null)
@@ -135,11 +155,17 @@ function onLeave() {
 
 <template>
   <div class="app-canvas min-h-screen flex items-center justify-center">
+    <UpdateBanner
+      v-if="showUpdateBanner && hasUpdate"
+      @reload="onReloadForUpdate"
+      @dismiss="hasUpdate = false"
+    />
     <div class="w-full max-w-[390px] h-[100dvh] max-h-[844px] relative overflow-hidden bg-[var(--app-bg)] text-[var(--app-ink)]">
       <LobbyScreen
         v-if="view === 'lobby'"
         :error="error"
         :initialCode="joinCodeFromUrl"
+        :offline="connection.state === 'offline' || connection.state === 'reconnecting'"
         @create-room="onCreateRoom"
         @join-room="onJoinRoom"
       />

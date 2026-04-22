@@ -5,6 +5,7 @@ import { useTheme } from '../theme.js'
 const props = defineProps({
   error: { type: String, default: null },
   initialCode: { type: String, default: null },
+  offline: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['create-room', 'join-room'])
@@ -107,37 +108,45 @@ function onCodeKeydown(e) {
       <!-- Error -->
       <div v-if="error" class="text-[var(--app-danger)] text-sm text-center">{{ error }}</div>
 
-      <!-- Create Room -->
-      <button
-        @click="openCreateSheet"
-        :disabled="!playerName.trim()"
-        class="w-full bg-[var(--app-accent)] hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed text-[var(--app-accent-ink)] font-bold rounded-lg px-4 py-3 transition-colors"
-      >
-        CREATE ROOM
-      </button>
-
-      <div class="text-center text-[var(--app-muted)] text-sm">OR</div>
-
-      <!-- Join Room -->
-      <div class="flex gap-2">
-        <input
-          v-model="roomCode"
-          type="text"
-          inputmode="numeric"
-          placeholder="Room Code"
-          maxlength="5"
-          class="flex-1 bg-[var(--app-surface)] border rounded-lg px-4 py-3 text-[var(--app-ink)] placeholder-[var(--app-muted)] focus:outline-none uppercase"
-          :class="codeError ? 'border-[var(--app-danger)]' : 'border-[var(--app-rule)] focus:border-[var(--app-accent)]'"
-          @keydown="onCodeKeydown"
-        />
-        <button
-          @click="joinRoom"
-          :disabled="!playerName.trim() || !roomCode.trim()"
-          class="bg-[var(--app-surface-2)] hover:brightness-125 disabled:opacity-40 disabled:cursor-not-allowed text-[var(--app-ink)] font-bold rounded-lg px-5 py-3 transition-colors border border-[var(--app-rule)]"
-        >
-          GO
-        </button>
+      <!-- Offline: hide create/join entirely. One message, no buttons,
+           no retry — socket.io auto-reconnects and this re-renders. -->
+      <div v-if="offline" class="text-center text-[var(--app-muted)] text-sm py-4">
+        Offline — reconnecting…
       </div>
+
+      <template v-else>
+        <!-- Create Room -->
+        <button
+          @click="openCreateSheet"
+          :disabled="!playerName.trim()"
+          class="w-full bg-[var(--app-accent)] hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed text-[var(--app-accent-ink)] font-bold rounded-lg px-4 py-3 transition-colors"
+        >
+          CREATE ROOM
+        </button>
+
+        <div class="text-center text-[var(--app-muted)] text-sm">OR</div>
+
+        <!-- Join Room -->
+        <div class="flex gap-2">
+          <input
+            v-model="roomCode"
+            type="text"
+            inputmode="numeric"
+            placeholder="Room Code"
+            maxlength="5"
+            class="flex-1 bg-[var(--app-surface)] border rounded-lg px-4 py-3 text-[var(--app-ink)] placeholder-[var(--app-muted)] focus:outline-none uppercase"
+            :class="codeError ? 'border-[var(--app-danger)]' : 'border-[var(--app-rule)] focus:border-[var(--app-accent)]'"
+            @keydown="onCodeKeydown"
+          />
+          <button
+            @click="joinRoom"
+            :disabled="!playerName.trim() || !roomCode.trim()"
+            class="bg-[var(--app-surface-2)] hover:brightness-125 disabled:opacity-40 disabled:cursor-not-allowed text-[var(--app-ink)] font-bold rounded-lg px-5 py-3 transition-colors border border-[var(--app-rule)]"
+          >
+            GO
+          </button>
+        </div>
+      </template>
     </div>
 
     <!-- Bot Count Bottom Sheet -->

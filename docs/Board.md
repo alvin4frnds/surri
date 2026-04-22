@@ -179,7 +179,8 @@ For **bid 13 rounds**: special overlay — "ALL OR NOTHING — [Team] wins/loses
 
 | State | Screen |
 |---|---|
-| Lobby / Room join | Player name entry, room code, bot count selector |
+| Lobby / Room join | Player name entry, room code, bot count selector, theme switcher |
+| Lobby — offline | Create/Join buttons are **hidden** (not disabled); single "Offline — reconnecting…" message in the button area. No retry button. The lobby re-renders the normal buttons once socket.io auto-reconnects. |
 | Waiting for players | Connected players shown, empty seats labeled "Bot" |
 | Dealing | Cards animate to each player position |
 | Support signal | Speech bubble exchange above avatars (visible to all) |
