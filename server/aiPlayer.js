@@ -180,6 +180,19 @@ class AIPlayer {
     this.game = game;
   }
 
+  /**
+   * Single fairness chokepoint for bot-pair coordination.
+   * Returns the partner's hand if the partner is a bot, else null.
+   * Callers must treat null as "partner hand unknown" and fall back to
+   * own-hand-only heuristics. Never surfaced to clients — peek is AI-only.
+   */
+  _visiblePartnerHand() {
+    const game = this.game;
+    const partner = (this.seat + 2) % 4;
+    if (!game.partnerIsBot(this.seat)) return null;
+    return game.hands[partner] || null;
+  }
+
   async decideAction() {
     const delay = process.env.FAST_TEST ? 10 : 600 + Math.random() * 400;
     await new Promise(r => setTimeout(r, delay));
@@ -249,8 +262,30 @@ class AIPlayer {
     const partnerSeat = (seat + 2) % 4;
     const partnerSignal = game.supportSignals[partnerSeat];
 
+    // Bot-pair coordination: when partner is also a bot, peek the combined hand.
+    // Trump is still chosen from own hand — combined estimate only drives bid value.
+    const partnerHand = this._visiblePartnerHand();
+    const combinedEstimate = partnerHand
+      ? evaluateHand([...hand, ...partnerHand], suit)
+      : null;
+
+    if (combinedEstimate != null) {
+      // Skip the support round-trip entirely — we already know the partner hand.
+      if (combinedEstimate >= 10) {
+        const bidAmount = Math.min(Math.round(combinedEstimate), 13);
+        game.placeBid(seat, bidAmount, suit);
+        return { action: 'place_bid', bid: bidAmount, trump: suit };
+      }
+      if (combinedEstimate < 8) {
+        game.passBid(seat);
+        return { action: 'pass_bid' };
+      }
+      // 8 ≤ combinedEstimate < 10 — fall through to signal-based logic
+      // (partner-signal branches below remain valid if a signal was gathered).
+    }
+
     // Should we ask for support first?
-    if (!game.supportAsked[seat] && estimate >= 5 && estimate < 8) {
+    if (!game.supportAsked[seat] && estimate >= 5 && estimate < 8 && combinedEstimate == null) {
       game.askSupport(seat);
       return { action: 'ask_support' };
       // After asking, bot will be called again after partner responds
@@ -297,10 +332,16 @@ class AIPlayer {
     const currentBid = game.bid ?? 10;
     const target = currentBid + 1;
 
-    // Raise only if this bot could have opened at (currentBid + 1) itself.
-    // Safer than padding; partner hand is not revealed yet.
-    if (target <= 13 && estimate >= target) {
-      const bidAmount = Math.min(Math.round(estimate), 13);
+    // Bot-pair coordination: if partner is a bot, use the combined estimate
+    // (trump still chosen from own hand to avoid leaking partner info via trump choice).
+    const partnerHand = this._visiblePartnerHand();
+    const effectiveEstimate = partnerHand
+      ? evaluateHand([...hand, ...partnerHand], suit)
+      : estimate;
+
+    // Raise only if we could have opened at (currentBid + 1).
+    if (target <= 13 && effectiveEstimate >= target) {
+      const bidAmount = Math.min(Math.round(effectiveEstimate), 13);
       game.raiseBid(seat, Math.max(target, bidAmount), suit);
       return { action: 'raise_bid', bid: Math.max(target, bidAmount), trump: suit };
     }
@@ -319,7 +360,14 @@ class AIPlayer {
     const { suit, estimate } = bestSuit(hand);
     const partnerSeat = (seat + 2) % 4;
 
-    const bidAmount = Math.max(8, Math.min(Math.round(estimate), 13));
+    // Bot-pair coordination: combined estimate informs bid value.
+    // Trump still chosen from own hand (bidder's prerogative + info hygiene).
+    const partnerHand = this._visiblePartnerHand();
+    const effectiveEstimate = partnerHand
+      ? evaluateHand([...hand, ...partnerHand], suit)
+      : estimate;
+
+    const bidAmount = Math.max(8, Math.min(Math.round(effectiveEstimate), 13));
     game.placeBid(seat, bidAmount, suit);
     return { action: 'place_bid', bid: bidAmount, trump: suit };
   }
@@ -495,6 +543,30 @@ class AIPlayer {
     const opponents = [0, 1, 2, 3].filter(s => s % 2 !== callerTeam);
     const opponentVoidSuits = opponents.map(s => game.voidSuits[s]);
     const partnerVoidSuits = game.voidSuits[partnerSeat];
+
+    // Bot-pair coordination: if partner is a bot, prefer leading suits where
+    // partner holds a top card (A, or K with length). The caller is `seat`,
+    // which may be the bidder controlling partner too — only peek when the
+    // lead-from seat matches our own seat (partner-is-bot gate relies on seat
+    // identity). `_visiblePartnerHand()` already checks that partner is a bot.
+    const partnerHandPeek = (seat === this.seat) ? this._visiblePartnerHand() : null;
+    if (partnerHandPeek) {
+      for (const candidateSuit of SUITS) {
+        if (candidateSuit === trump) continue;
+        const partnerInSuit = partnerHandPeek.filter(c => cardSuit(c) === candidateSuit);
+        const partnerHasAce = partnerInSuit.some(c => c.startsWith('A'));
+        const partnerHasGuardedK = partnerInSuit.some(c => c.startsWith('K')) && partnerInSuit.length >= 3;
+        // Also check opponents aren't known-void (they could trump)
+        const oppVoidInSuit = opponentVoidSuits.some(vs => vs.has(candidateSuit));
+        if ((partnerHasAce || partnerHasGuardedK) && !oppVoidInSuit) {
+          const myLowInSuit = playable.filter(c => cardSuit(c) === candidateSuit);
+          if (myLowInSuit.length > 0) {
+            // Lead low into partner's strength — they'll take the trick.
+            return lowestCard(myLowInSuit);
+          }
+        }
+      }
+    }
 
     const bidTeamTricks = game.tricks[game.biddingTeam === 0 ? 0 : 1] +
       game.tricks[game.biddingTeam === 0 ? 2 : 3];
@@ -728,11 +800,7 @@ class AIPlayer {
 
     const opponents = [0, 1, 2, 3].filter(s => s % 2 !== callerTeam);
 
-    // Check if all remaining cards in hand are provably winning
-    const allOpponentCards = opponents.flatMap(s => game.hands[s]);
-
-    // Simple check: if we have all remaining trump and all remaining aces
-    // Order cards: trump first (high), then aces, then others
+    // Sort own-hand cards: trump first (high), then aces, then others
     const sorted = [...hand].sort((a, b) => {
       const aT = cardSuit(a) === trump;
       const bT = cardSuit(b) === trump;
@@ -741,8 +809,14 @@ class AIPlayer {
       return cardRank(b) - cardRank(a);
     });
 
-    // Verify each of the needed cards can't be beaten
     const tramCards = sorted.slice(0, needed);
+
+    // Bot-pair coordination: when partner is a bot, we know partner's cards.
+    // Claim list still MUST be own cards (game rule), and the game's `callTram`
+    // validator is authoritative — but for the *attempt decision*, we can skip
+    // the self-attempt path if opponents visibly hold a beating card, since
+    // we also know opponent hands aren't partner's.
+    // (No additive claim-list change — fairness/rule isolation preserved.)
 
     for (const card of tramCards) {
       const suit = cardSuit(card);

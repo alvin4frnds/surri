@@ -219,7 +219,47 @@ Consider bidding 13 when:
 
 ---
 
-## 8. Decision Priority Order
+## 8. Fairness gate — Bot-pair shared hand visibility
+
+When both seats on a team are bots, each bot's server-side decision functions gain **read access to its partner's hand** for coordinated AI play. This is a pure server-side AI logic feature — it never leaks through `getStateFor(seat)` to any client. See [spec 002](todos/specs/002-bot-pair-shared-hands.md) for the full design.
+
+### Single chokepoint — `_visiblePartnerHand()`
+
+All peek access flows through one helper on `AIPlayer`:
+
+```js
+_visiblePartnerHand() {
+  const partner = (this.seat + 2) % 4;
+  if (!this.game.partnerIsBot(this.seat)) return null;
+  return this.game.hands[partner] || null;
+}
+```
+
+The gate (`game.partnerIsBot(seat)`) is evaluated **per decision**, not per round. When a human disconnects and is replaced by a bot, the remaining bot sees its partner as a bot on the very next decision. When the human reconnects, access is revoked on the next decision. The bot does not "remember" what it previously saw.
+
+### Where the peek is used
+
+| Function | Effect when partner is a bot |
+|---|---|
+| `_decideBid()` | Combined 26-card estimate drives bid value; skips the support round-trip when combined ≥ 10 or bails at combined < 8. Trump is still chosen from the bidder's own hand. |
+| `_decideForcedBid()` | Combined estimate drives bid value; trump still chosen from own hand. |
+| `_decideRaise()` | Combined estimate replaces solo estimate for the `estimate ≥ target` check. |
+| `_decideLeadCard()` | When the bot leads, it prefers a low card in a non-trump suit where the partner holds an A (or guarded K) and no opponent is known void. Lets partner naturally take the trick. |
+| `_getTramCards()` | Unchanged claim math (claim list must be the caller's own cards per game rules). Peek is available to inform more aggressive attempts; `callTram()` server-side validation remains authoritative. |
+
+### Where the peek is NOT used
+
+- `getStateFor(seat)` — **never**. The partner hand is only serialized to clients when `phase === 'partner_reveal' | 'playing' | 'scoring'` and `bid ≥ 10` (existing rule, unchanged). Test coverage: see `server/test-bot-coordination.js` §7e.
+- `_decideIncrease()` and `_decideBidderPlay()` already legitimately see the partner hand after bid ≥ 10 — those paths are unchanged.
+- When the partner is a human, behaviour is exactly as today.
+
+### Fairness invariant
+
+**Bots never peek into a human partner's hand.** This is enforced by the `partnerIsBot(seat)` gate and verified per-commit by the byte-equality snapshot test. Any future change that touches `_visiblePartnerHand()` or adds a new peek site must update the snapshot test in `server/test-bot-coordination.js`.
+
+---
+
+## 9. Decision Priority Order
 
 When choosing a card to play:
 
