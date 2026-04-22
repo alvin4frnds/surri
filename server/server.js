@@ -68,6 +68,21 @@ function broadcastRoomState(roomCode) {
   }
 }
 
+function _spectatorGameState(game) {
+  // Spectator view: start from seat 0's state and null out the personal bits.
+  // partnerHand stays as-is — it's already phase-gated in getStateFor and is
+  // public info once the overbid window closes and bid >= 10.
+  const base = game.getStateFor(0);
+  return {
+    ...base,
+    myHand: [],
+    myTurn: false,
+    playableCards: [],
+    mySeat: null,
+    spectator: true,
+  };
+}
+
 function broadcastGameState(roomCode) {
   const room = rooms.get(roomCode);
   if (!room || !room.game) return;
@@ -77,6 +92,29 @@ function broadcastGameState(roomCode) {
       io.to(s.socketId).emit('game_state', { state: room.game.getStateFor(seat) });
     }
   }
+  if (room.spectators && room.spectators.size > 0) {
+    const spectatorState = _spectatorGameState(room.game);
+    for (const socketId of room.spectators) {
+      io.to(socketId).emit('game_state', { state: spectatorState });
+    }
+  }
+}
+
+function _promoteSpectatorIfPossible(room) {
+  if (!room.spectators || room.spectators.size === 0) return;
+  const claimable = room.seats.findIndex(s => s && s.isBot === true && s.isTempBot !== true);
+  if (claimable === -1) return;
+
+  // FIFO — Set preserves insertion order.
+  const [socketId] = room.spectators;
+  const sock = io.sockets.sockets.get(socketId);
+  if (!sock) {
+    // Spectator disconnected without hitting our disconnect handler — drop and retry.
+    room.spectators.delete(socketId);
+    _promoteSpectatorIfPossible(room);
+    return;
+  }
+  sock.emit('spectator_seat_offer', { seat: claimable });
 }
 
 function createBotForSeat(seat, room) {
@@ -344,6 +382,7 @@ io.on('connection', (socket) => {
         hostSeat: 0,
         gameStarted: false,
         _botRunning: false,
+        spectators: new Set(), // socketIds — non-seated viewers
       };
 
       rooms.set(code, room);
@@ -361,6 +400,9 @@ io.on('connection', (socket) => {
 
   // -------------------------------------------------------------------------
   // join_room
+  //
+  // Game not started → fill an open seat (legacy behaviour).
+  // Game started    → try takeover of a claimable bot seat, else spectator.
   // -------------------------------------------------------------------------
   socket.on('join_room', ({ name, code }) => {
     try {
@@ -369,8 +411,9 @@ io.on('connection', (socket) => {
       if (!room) {
         return socket.emit('error', { message: 'Room not found' });
       }
+
       if (room.gameStarted) {
-        return socket.emit('error', { message: 'Game already started' });
+        return _joinStartedRoom(socket, room, name);
       }
 
       // Find next open human seat
@@ -409,6 +452,91 @@ io.on('connection', (socket) => {
       socket.emit('error', { message: err.message });
     }
   });
+
+  // -------------------------------------------------------------------------
+  // Helpers for started-room join (takeover / spectator)
+  // -------------------------------------------------------------------------
+  function _joinStartedRoom(sock, room, name) {
+    const pid = sock.playerId;
+
+    // Priority 1: pending reconnect for this playerId — if they called
+    // join_room instead of rejoin_room, be forgiving and route them through.
+    if (pid && pendingReconnects.has(pid)) {
+      const pending = pendingReconnects.get(pid);
+      if (pending.roomCode === room.code) {
+        // Trigger the existing rejoin flow. Emit the rejoin event back and
+        // let the client handle it the standard way.
+        sock.emit('rejoin_available');
+        return;
+      }
+    }
+
+    // Priority 2: takeover a claimable bot seat.
+    const claimable = room.seats.findIndex(s => s && s.isBot === true && s.isTempBot !== true);
+    if (claimable !== -1) {
+      return _takeoverSeat(sock, room, claimable, name);
+    }
+
+    // Priority 3: spectator.
+    return _joinAsSpectator(sock, room);
+  }
+
+  function _takeoverSeat(sock, room, seat, name) {
+    const seatInfo = room.seats[seat];
+    const pid = sock.playerId;
+
+    // Abort any in-flight bot decision for this seat so the human isn't
+    // surprised by a last-millisecond bot move after takeover.
+    if (room.bots[seat]) {
+      room.bots[seat]._aborted = true;
+    }
+
+    seatInfo.isBot = false;
+    seatInfo.isTempBot = false;
+    seatInfo.socketId = sock.id;
+    seatInfo.isConnected = true;
+    seatInfo.playerId = pid;
+    seatInfo.name = name;
+
+    if (room.game && room.game.seats[seat]) {
+      room.game.seats[seat].isBot = false;
+      room.game.seats[seat].isConnected = true;
+      room.game.seats[seat].isTempBot = false;
+      room.game.seats[seat].name = name;
+    }
+
+    delete room.bots[seat];
+
+    socketToRoom.set(sock.id, { roomCode: room.code, seat });
+    if (pid) playerToRoom.set(pid, { roomCode: room.code, seat });
+    sock.join(room.code);
+
+    console.log(`Takeover: ${name} claimed seat ${seat} in room ${room.code}`);
+
+    const roomState = getRoomState(room);
+    sock.emit('takeover_success', {
+      seat,
+      roomCode: room.code,
+      gameState: room.game.getStateFor(seat),
+      roomState,
+    });
+
+    broadcastGameState(room.code);
+    broadcastRoomState(room.code);
+  }
+
+  function _joinAsSpectator(sock, room) {
+    if (!room.spectators) room.spectators = new Set();
+    room.spectators.add(sock.id);
+    socketToRoom.set(sock.id, { roomCode: room.code, seat: null, spectator: true });
+    sock.join(room.code);
+
+    sock.emit('spectate_joined', {
+      roomCode: room.code,
+      roomState: getRoomState(room),
+      gameState: room.game ? _spectatorGameState(room.game) : null,
+    });
+  }
 
   // -------------------------------------------------------------------------
   // start_game
@@ -757,6 +885,43 @@ io.on('connection', (socket) => {
   });
 
   // -------------------------------------------------------------------------
+  // takeover_seat — spectator confirming a seat offer, or explicit claim
+  // -------------------------------------------------------------------------
+  socket.on('takeover_seat', ({ name, seat }) => {
+    try {
+      const info = socketToRoom.get(socket.id);
+      if (!info || !info.spectator) {
+        return socket.emit('error', { message: 'Not a spectator' });
+      }
+      const room = rooms.get(info.roomCode);
+      if (!room) return socket.emit('error', { message: 'Room not found' });
+
+      const target = room.seats[seat];
+      if (!target || !target.isBot || target.isTempBot) {
+        return socket.emit('error', { message: 'Seat not claimable' });
+      }
+
+      room.spectators?.delete(socket.id);
+      _takeoverSeat(socket, room, seat, name || 'Guest');
+    } catch (err) {
+      console.error('takeover_seat error:', err);
+      socket.emit('error', { message: err.message });
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // leave_spectator — spectator wants to return to lobby
+  // -------------------------------------------------------------------------
+  socket.on('leave_spectator', () => {
+    const info = socketToRoom.get(socket.id);
+    if (!info || !info.spectator) return;
+    const room = rooms.get(info.roomCode);
+    if (room) room.spectators?.delete(socket.id);
+    socketToRoom.delete(socket.id);
+    socket.leave(info.roomCode);
+  });
+
+  // -------------------------------------------------------------------------
   // rejoin_room — reconnect after temporary disconnect
   // -------------------------------------------------------------------------
   socket.on('rejoin_room', () => {
@@ -852,6 +1017,14 @@ io.on('connection', (socket) => {
     const room = rooms.get(info.roomCode);
     if (!room) return;
 
+    // Spectator disconnect — drop from set and re-run promotion (in case
+    // a seat opened while this spectator was the head of the queue).
+    if (info.spectator) {
+      room.spectators?.delete(socket.id);
+      _promoteSpectatorIfPossible(room);
+      return;
+    }
+
     const seatInfo = room.seats[info.seat];
     if (seatInfo && !seatInfo.isBot) {
       seatInfo.isConnected = false;
@@ -890,6 +1063,8 @@ io.on('connection', (socket) => {
               }
               broadcastGameState(info.roomCode);
               broadcastRoomState(info.roomCode);
+              // Seat is now a plain bot — a waiting spectator can claim it.
+              _promoteSpectatorIfPossible(r);
             }
             console.log(`Grace period expired for player in room ${info.roomCode} seat ${info.seat}`);
           }, 5 * 60 * 1000);
@@ -910,14 +1085,16 @@ io.on('connection', (socket) => {
         broadcastGameState(info.roomCode);
 
         // If all 4 players are now bots, drop the game after 10 seconds
-        // BUT only if no one has a pending reconnect for this room
+        // BUT only if no one has a pending reconnect AND no spectators
+        // are watching (spectators can claim the bot seats).
         const allBots = room.seats.every(s => s?.isBot);
         const hasPendingReconnect = room.seats.some(s => s?.isTempBot);
-        if (allBots && !hasPendingReconnect) {
+        const hasSpectators = (room.spectators?.size ?? 0) > 0;
+        if (allBots && !hasPendingReconnect && !hasSpectators) {
           console.log(`Room ${info.roomCode}: all players are bots, dropping in 10s`);
           setTimeout(() => {
             const r = rooms.get(info.roomCode);
-            if (r && r.seats.every(s => s?.isBot) && !r.seats.some(s => s?.isTempBot)) {
+            if (r && r.seats.every(s => s?.isBot) && !r.seats.some(s => s?.isTempBot) && (r.spectators?.size ?? 0) === 0) {
               console.log(`Room ${info.roomCode}: dropped (all bots)`);
               rooms.delete(info.roomCode);
               // Clean up pending reconnects for this room

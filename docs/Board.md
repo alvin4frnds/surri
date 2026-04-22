@@ -181,6 +181,8 @@ For **bid 13 rounds**: special overlay — "ALL OR NOTHING — [Team] wins/loses
 |---|---|
 | Lobby / Room join | Player name entry, room code, bot count selector, theme switcher |
 | Lobby — offline | Create/Join buttons are **hidden** (not disabled); single "Offline — reconnecting…" message in the button area. No retry button. The lobby re-renders the normal buttons once socket.io auto-reconnects. |
+| Spectator view | Same GameBoard layout but no hand-bottom, no bid/play/give-up controls. Top strip reads "Spectating — waiting for a seat to open". "Stop watching" button (top-right) replaces "Quit game". |
+| Spectator — seat offer | Modal: "A seat opened up. Seat N is yours if you want it." Two buttons — "No thanks" / "Take seat". Confirming emits `takeover_seat`. |
 | Waiting for players | Connected players shown, empty seats labeled "Bot" |
 | Dealing | Cards animate to each player position |
 | Support signal | Speech bubble exchange above avatars (visible to all) |

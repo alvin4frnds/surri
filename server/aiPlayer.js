@@ -178,6 +178,7 @@ class AIPlayer {
   constructor(seat, game) {
     this.seat = seat;
     this.game = game;
+    this._aborted = false;
   }
 
   /**
@@ -196,6 +197,10 @@ class AIPlayer {
   async decideAction() {
     const delay = process.env.FAST_TEST ? 10 : 600 + Math.random() * 400;
     await new Promise(r => setTimeout(r, delay));
+
+    // Abort if the bot was taken over during the thinking delay.
+    // Server sets this flag when a human claims the seat mid-turn.
+    if (this._aborted) return null;
 
     const game = this.game;
     const seat = this.seat;
