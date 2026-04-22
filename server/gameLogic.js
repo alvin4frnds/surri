@@ -1164,6 +1164,13 @@ class SurriGame {
     }
     return null;
   }
+
+  // Partner is a bot → caller (bot) is allowed to peek for AI decisions.
+  // Server-internal fairness gate; NOT used in getStateFor.
+  partnerIsBot(seat) {
+    const partner = (seat + 2) % 4;
+    return !!(this.seats[partner] && this.seats[partner].isBot);
+  }
 }
 
 module.exports = { SurriGame, RANKS, SUITS, cardRank, cardSuit, getPlayableCards, trickWinner };
