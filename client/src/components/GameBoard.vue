@@ -13,10 +13,17 @@ import ExplainLossOverlay from './ExplainLossOverlay.vue'
 
 const props = defineProps({
   gameState: { type: Object, required: true },
-  mySeat: { type: Number, required: true },
+  mySeat: { type: Number, default: null },
+  spectator: { type: Boolean, default: false },
+  seatOffer: { type: Object, default: null },
 })
 
-const emit = defineEmits(['game-action', 'leave'])
+const emit = defineEmits(['game-action', 'leave', 'accept-seat-offer', 'dismiss-seat-offer'])
+
+// Layout anchor: spectators (mySeat === null) view from seat 0's position.
+// Personal computeds (myHand, myTurn, playableCards) come from gameState
+// and are already empty for spectators per _spectatorGameState on the server.
+const anchor = computed(() => props.mySeat ?? 0)
 
 const showTram = ref(false)
 const showRoundSummary = ref(false)
@@ -40,14 +47,14 @@ watch(() => props.gameState?.phase, (newPhase, oldPhase) => {
 
 // Relative position helper: delta from mySeat
 function relPos(seat) {
-  const delta = (seat - props.mySeat + 4) % 4
+  const delta = (seat - anchor.value + 4) % 4
   return ['south', 'west', 'north', 'east'][delta]
 }
 
 // Get absolute seat for a relative position
 function absSeat(pos) {
   const idx = ['south', 'west', 'north', 'east'].indexOf(pos)
-  return (props.mySeat + idx) % 4
+  return (anchor.value + idx) % 4
 }
 
 const gs = computed(() => props.gameState)
@@ -81,7 +88,7 @@ const isScoring = computed(() => phase.value === 'scoring')
 const isGameOver = computed(() => lastRoundResult.value?.gameOver === true)
 
 // Partner seat
-const partnerSeat = computed(() => (props.mySeat + 2) % 4)
+const partnerSeat = computed(() => (anchor.value + 2) % 4)
 
 // The revealed partner seat (bidder's partner, shown on north)
 const revealedPartnerSeat = computed(() => biddingSeat.value != null ? (biddingSeat.value + 2) % 4 : null)
@@ -94,7 +101,7 @@ const showPartnerOnNorth = computed(() => {
 
 // Is bidder with bid >= 10 controlling partner
 const isBidderControlling = computed(() =>
-  isPlaying.value && biddingSeat.value === props.mySeat && (bid.value ?? 0) >= 10
+  isPlaying.value && biddingSeat.value === anchor.value && (bid.value ?? 0) >= 10
 )
 
 // Partner's turn during partner control — server signals this via playingForPartner
@@ -104,9 +111,9 @@ const isPartnersTurn = computed(() =>
 
 // I am partner whose hand is revealed
 const amRevealedPartner = computed(() =>
-  isPlaying.value && biddingSeat.value != null && biddingSeat.value !== props.mySeat
-  && partnerSeat.value === props.mySeat && (bid.value ?? 0) >= 10
-  && biddingSeat.value === (props.mySeat + 2) % 4
+  isPlaying.value && biddingSeat.value != null && biddingSeat.value !== anchor.value
+  && partnerSeat.value === anchor.value && (bid.value ?? 0) >= 10
+  && biddingSeat.value === (anchor.value + 2) % 4
 )
 
 // Support signals for bid history display
@@ -137,14 +144,14 @@ function teamTricksWon(seat) {
 }
 
 function isMyTeam(seat) {
-  return seat % 2 === props.mySeat % 2
+  return seat % 2 === anchor.value % 2
 }
 
 // Score badge computations
-const myTeamTricks = computed(() => teamTricksWon(props.mySeat))
-const myTeamTarget = computed(() => teamTarget(props.mySeat))
-const oppTeamTricks = computed(() => teamTricksWon(props.mySeat % 2 === 0 ? 1 : 0))
-const oppTeamTarget = computed(() => teamTarget(props.mySeat % 2 === 0 ? 1 : 0))
+const myTeamTricks = computed(() => teamTricksWon(anchor.value))
+const myTeamTarget = computed(() => teamTarget(anchor.value))
+const oppTeamTricks = computed(() => teamTricksWon(anchor.value % 2 === 0 ? 1 : 0))
+const oppTeamTarget = computed(() => teamTarget(anchor.value % 2 === 0 ? 1 : 0))
 
 // Trump watermark symbol
 const TRUMP_SYMBOLS = { S: '\u2660', H: '\u2665', D: '\u2666', C: '\u2663' }
@@ -213,6 +220,11 @@ const isOnlyHuman = computed(() => {
 })
 
 function onLeaveClick() {
+  // Spectators leave freely — no confirmation; they weren't seated.
+  if (props.spectator) {
+    emit('leave')
+    return
+  }
   if (isOnlyHuman.value) {
     showLeaveConfirm.value = true
   } else {
@@ -238,6 +250,46 @@ function onIssueSubmit({ description, screenshot }) {
 
 <template>
   <div class="game-capture-target h-full w-full relative overflow-hidden bg-[var(--app-bg)]">
+    <!-- Spectator banner — static strip at the top while watching a game. -->
+    <div
+      v-if="spectator"
+      class="absolute top-0 left-0 right-0 z-[30] bg-[var(--app-surface-2)] border-b border-[var(--app-rule)] px-3 py-1.5 text-center"
+    >
+      <span class="text-xs text-[var(--app-muted)] uppercase tracking-wider">
+        Spectating — waiting for a seat to open
+      </span>
+    </div>
+
+    <!-- Seat offer modal — a seat just opened for the front-of-queue spectator. -->
+    <Transition name="toast-fade">
+      <div
+        v-if="seatOffer"
+        class="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center"
+      >
+        <div class="bg-[var(--app-surface)] rounded-xl p-6 mx-4 text-center max-w-xs shadow-2xl border border-[var(--app-rule)]">
+          <div class="text-3xl mb-3">&#9812;</div>
+          <h2 class="text-lg font-bold text-[var(--app-ink)] mb-2">A seat opened up</h2>
+          <p class="text-[var(--app-muted)] text-sm mb-4">
+            Seat {{ seatOffer.seat + 1 }} is yours if you want it.
+          </p>
+          <div class="flex gap-2">
+            <button
+              @click="$emit('dismiss-seat-offer')"
+              class="flex-1 bg-[var(--app-surface-2)] hover:brightness-125 text-[var(--app-ink)] text-sm font-medium rounded-lg px-4 py-2 transition-colors border border-[var(--app-rule)]"
+            >
+              No thanks
+            </button>
+            <button
+              @click="$emit('accept-seat-offer', { seat: seatOffer.seat })"
+              class="flex-1 bg-[var(--app-accent)] hover:brightness-110 text-[var(--app-accent-ink)] text-sm font-bold rounded-lg px-4 py-2 transition-colors"
+            >
+              Take seat
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
     <!-- Dealing animation -->
     <Transition name="deal-fade">
       <div v-if="showDealing" class="absolute inset-0 z-[25] flex items-center justify-center pointer-events-none">
@@ -267,17 +319,17 @@ function onIssueSubmit({ description, screenshot }) {
         @click="onLeaveClick"
         class="bg-[var(--app-surface)]/80 hover:bg-[var(--app-danger)] text-[var(--app-muted)] hover:text-white text-xs rounded-lg px-2 py-1 transition-colors border border-[var(--app-rule)]"
       >
-        Quit game
+        {{ spectator ? 'Stop watching' : 'Quit game' }}
       </button>
       <button
-        v-if="isPlaying"
+        v-if="isPlaying && !spectator"
         @click="showGiveUpConfirm = true"
         class="bg-[var(--app-danger)]/60 hover:bg-[var(--app-danger)]/80 text-white text-xs font-medium rounded-lg px-3 py-1.5 transition-colors"
       >
         Give Up
       </button>
       <button
-        v-if="!issueSubmitted"
+        v-if="!issueSubmitted && !spectator"
         @click="onIssueClick"
         class="bg-[var(--app-surface)]/80 hover:bg-[var(--app-dealer)] text-[var(--app-muted)] hover:text-white text-xs rounded-lg px-2 py-1 transition-colors border border-[var(--app-rule)]"
         title="Report an issue"
@@ -372,7 +424,7 @@ function onIssueSubmit({ description, screenshot }) {
     <div class="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 z-10" :class="showPartnerOnNorth ? 'top-[38%]' : 'top-[30%]'">
       <TrickArea
         :currentTrick="gs.currentTrick ?? []"
-        :mySeat="mySeat"
+        :mySeat="anchor"
         :dhaaps="dhaaps"
       />
     </div>
@@ -460,7 +512,7 @@ function onIssueSubmit({ description, screenshot }) {
     <div v-if="isBidding" class="absolute top-[50%] left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-full max-w-[320px] px-3" :class="showPartnerOnNorth ? 'top-[55%]' : 'top-[45%]'">
       <BiddingPanel
         :gameState="gs"
-        :mySeat="mySeat"
+        :mySeat="anchor"
         @ask-support="onBiddingAction('ask_support', {})"
         @give-support="(p) => onBiddingAction('give_support', p)"
         @place-bid="(p) => onBiddingAction('place_bid', p)"
@@ -476,7 +528,7 @@ function onIssueSubmit({ description, screenshot }) {
     <TramOverlay
       v-if="showTram && isPlaying"
       :gameState="gs"
-      :mySeat="mySeat"
+      :mySeat="anchor"
       @call-tram="onTram"
       @close="showTram = false"
     />
@@ -487,7 +539,7 @@ function onIssueSubmit({ description, screenshot }) {
       :lastRoundResult="lastRoundResult"
       :seats="seats"
       :tramResult="tramResult"
-      :mySeat="mySeat"
+      :mySeat="anchor"
       @continue="onRoundContinue"
       @explain-loss="showExplainLoss = true"
     />
@@ -499,7 +551,7 @@ function onIssueSubmit({ description, screenshot }) {
       :tramResult="tramResult"
       :trump="trump"
       :seats="seats"
-      :mySeat="mySeat"
+      :mySeat="anchor"
       @close="showExplainLoss = false"
     />
 
@@ -508,7 +560,7 @@ function onIssueSubmit({ description, screenshot }) {
       v-if="isGameOver && lastRoundResult"
       :lastRoundResult="lastRoundResult"
       :seats="seats"
-      :mySeat="mySeat"
+      :mySeat="anchor"
       @play-again="onPlayAgain"
       @leave="onLeave"
     />

@@ -23,6 +23,8 @@ Suits: `S H D C`
 | `raise_bid` | `{ bid, trump }` | Overbid window, player's turn |
 | `pass_raise` | `{}` | Overbid window, player's turn |
 | `increase_bid` | `{ bid }` | Partner reveal phase |
+| `takeover_seat` | `{ name, seat }` | Spectator claiming an offered (or any claimable) bot seat |
+| `leave_spectator` | `{}` | Spectator wants to stop watching |
 | `start_play` | `{}` | Partner reveal phase (bidder only) |
 | `play_card` | `{ card }` | Playing phase, player's turn |
 | `call_tram` | `{ cards: string[] }` | Playing phase (ordered claim) |
@@ -32,10 +34,29 @@ Suits: `S H D C`
 | Event | Payload | When |
 |---|---|---|
 | `room_created` | `{ code, seat, state: RoomState }` | After create_room |
-| `room_joined` | `{ seat, state: RoomState }` | After join_room |
+| `room_joined` | `{ seat, state: RoomState }` | After join_room (game not yet started) |
 | `room_updated` | `{ state: RoomState }` | Any seat changes |
 | `game_state` | `{ state: GameState }` | After every game action |
+| `takeover_success` | `{ seat, roomCode, gameState, roomState }` | After join_room routed to takeover, or after explicit takeover_seat |
+| `spectate_joined` | `{ roomCode, roomState, gameState }` | After join_room routed to spectator |
+| `spectator_seat_offer` | `{ seat }` | A seat opened and this spectator is next in the queue |
+| `rejoin_available` | `{}` | join_room hit a pending reconnect for this playerId — client should emit rejoin_room |
 | `error` | `{ message }` | Invalid action |
+
+### Started-room `join_room` routing
+
+When a client emits `join_room` for a room where `gameStarted === true`, the server does **not** reject — instead it routes the socket through one of three paths and replies with the matching event:
+
+1. Pending reconnect for this playerId → `rejoin_available`. Client should emit `rejoin_room`.
+2. At least one claimable bot seat (bot, not in grace period) → auto-takeover → `takeover_success`.
+3. Otherwise → spectator → `spectate_joined`. The socket joins the room's socket.io channel and receives filtered `game_state` broadcasts thereafter.
+
+### URL conventions
+
+- Canonical room URL: `/r/{CODE}` (e.g. `https://surri.xuresolutions.in/r/ABCD`).
+- Legacy alias `/join/{CODE}` is still accepted and silently normalized to `/r/{CODE}` by the client on landing.
+- The client pushes `/r/{CODE}` on entering a room, clears to `/` on leave.
+- Browser back/forward reconciles URL into app state (spec-004 §4a).
 
 ## RoomState
 

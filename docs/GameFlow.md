@@ -29,10 +29,20 @@ This is the authoritative game flow for Surri, a trick-taking card game that use
 
 ## 1. Session Setup
 
-1. A player creates or joins a room (room code or matchmaking).
+1. A player creates or joins a room (room code or shareable URL `/r/{CODE}`).
 2. 4 seats total. Empty seats filled by AI bots (0–3 bots configurable at creation).
 3. Teams auto-assigned by seat: **Seats 0 & 2** (Team A) vs **Seats 1 & 3** (Team B).
 4. Game starts when all 4 seats are filled.
+
+### Mid-game joins
+
+Once a game has started, someone who opens the room URL can still enter — the server routes them via one of three paths in priority order:
+
+1. **Pending reconnect** — they're a disconnected player within the 5-minute grace window. Restored to their original seat.
+2. **Seat takeover** — at least one bot seat is claimable (not protected by grace). The auto-pick is the lowest-indexed claimable bot; the arriving human replaces it, inheriting the bot's hand, tricks, and score. The bot's in-flight decision is aborted to avoid a last-millisecond bot move.
+3. **Spectator** — all seats are humans or grace-protected bots. The visitor watches with all hands face-down (except the publicly-revealed partner hand when bid ≥10, same as every player). Spectators are queued FIFO; when a seat becomes claimable, the front-of-queue spectator is offered it via a modal and can confirm to take over.
+
+Spectators can leave freely; seats cannot. Rooms with zero humans and no spectators auto-delete after 10 seconds.
 
 ---
 

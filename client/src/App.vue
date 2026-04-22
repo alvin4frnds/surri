@@ -35,12 +35,25 @@ const view = ref('lobby')
 const error = ref(null)
 const disconnected = ref(false)
 const joinCodeFromUrl = ref(null)
+const seatOffer = ref(null) // { seat } when a spectator is offered a seat
 
-// Parse /join/CODE from URL for share links
-const joinMatch = window.location.pathname.match(/^\/join\/(\w+)$/i)
-if (joinMatch) {
-  joinCodeFromUrl.value = joinMatch[1].toUpperCase()
-  window.history.replaceState({}, '', '/')
+// Parse /r/CODE or legacy /join/CODE from URL for share links.
+// Canonical form is /r/CODE; /join/CODE is kept for backwards compatibility
+// and silently normalized to /r/CODE on landing.
+const urlMatch = window.location.pathname.match(/^\/(?:r|join)\/(\w+)$/i)
+if (urlMatch) {
+  joinCodeFromUrl.value = urlMatch[1].toUpperCase()
+  const canonical = `/r/${joinCodeFromUrl.value}`
+  if (window.location.pathname !== canonical) {
+    window.history.replaceState({}, '', canonical)
+  }
+}
+
+function pushRoomUrl(code) {
+  const target = code ? `/r/${code}` : '/'
+  if (window.location.pathname !== target) {
+    window.history.pushState({}, '', target)
+  }
 }
 
 socket.on('disconnect', () => {
@@ -86,6 +99,7 @@ socket.on('room_created', ({ code, seat, state }) => {
   view.value = 'waiting'
   error.value = null
   setUserId(socket.id)
+  pushRoomUrl(code)
   logEvent('room_created', { botCount: state.botCount ?? 0 })
 })
 
@@ -96,6 +110,7 @@ socket.on('room_joined', ({ seat, state }) => {
   view.value = 'waiting'
   error.value = null
   setUserId(socket.id)
+  pushRoomUrl(state.code)
   logEvent('room_joined')
 })
 
@@ -108,6 +123,42 @@ socket.on('game_state', ({ state }) => {
   if (view.value !== 'game') {
     view.value = 'game'
   }
+})
+
+// Spec-004: takeover of a bot seat while a game is in progress.
+socket.on('takeover_success', ({ seat, roomCode, gameState: gs, roomState: rs }) => {
+  mySeat.value = seat
+  myRoomCode.value = roomCode
+  roomState.value = rs
+  gameState.value = gs
+  view.value = 'game'
+  error.value = null
+  pushRoomUrl(roomCode)
+  logEvent('takeover_seat', { seat })
+})
+
+// Spec-004: joined as a spectator because no seat was claimable.
+socket.on('spectate_joined', ({ roomCode, roomState: rs, gameState: gs }) => {
+  mySeat.value = null
+  myRoomCode.value = roomCode
+  roomState.value = rs
+  gameState.value = gs
+  view.value = 'game' // GameBoard with spectator prop handles the UI
+  error.value = null
+  pushRoomUrl(roomCode)
+  logEvent('spectate_start')
+})
+
+// Spec-004: a seat just opened and we're next in line. GameBoard renders
+// the confirmation modal; user taps to confirm → emits takeover_seat.
+socket.on('spectator_seat_offer', ({ seat }) => {
+  seatOffer.value = { seat }
+})
+
+// Spec-004: forgiving routing when client calls join_room instead of
+// rejoin_room on a pending session.
+socket.on('rejoin_available', () => {
+  socket.emit('rejoin_room')
 })
 
 socket.on('error', ({ message }) => {
@@ -144,13 +195,51 @@ function onGameAction(event, payload) {
 }
 
 function onLeave() {
+  const wasSpectator = mySeat.value === null && myRoomCode.value != null
+  if (wasSpectator) {
+    socket.emit('leave_spectator')
+  }
   roomState.value = null
   gameState.value = null
   mySeat.value = null
   myRoomCode.value = null
+  seatOffer.value = null
   view.value = 'lobby'
   error.value = null
+  pushRoomUrl(null)
 }
+
+function onAcceptSeatOffer({ seat }) {
+  const savedName = localStorage.getItem('surri_name') || 'Guest'
+  socket.emit('takeover_seat', { name: savedName, seat })
+  seatOffer.value = null
+}
+
+function onDismissSeatOffer() {
+  seatOffer.value = null
+}
+
+// Browser back/forward → sync URL into app state.
+window.addEventListener('popstate', () => {
+  const path = window.location.pathname
+  if (path === '/') {
+    if (myRoomCode.value) onLeave()
+    return
+  }
+  const m = path.match(/^\/(?:r|join)\/(\w+)$/i)
+  if (!m) return
+  const code = m[1].toUpperCase()
+  if (code !== myRoomCode.value) {
+    // Navigated to a different room URL — leave current, attempt new.
+    if (myRoomCode.value) onLeave()
+    joinCodeFromUrl.value = code
+    if (socket.connected) {
+      tryAutoJoin()
+    } else {
+      socket.once('connect', tryAutoJoin)
+    }
+  }
+})
 </script>
 
 <template>
@@ -180,7 +269,11 @@ function onLeave() {
         v-else-if="view === 'game'"
         :gameState="gameState"
         :mySeat="mySeat"
+        :spectator="mySeat === null"
+        :seatOffer="seatOffer"
         @game-action="onGameAction"
+        @accept-seat-offer="onAcceptSeatOffer"
+        @dismiss-seat-offer="onDismissSeatOffer"
         @leave="onLeave"
       />
     </div>

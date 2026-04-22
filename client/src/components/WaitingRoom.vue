@@ -11,7 +11,7 @@ function copyCode() {
 }
 
 function shareRoom() {
-  const url = `${window.location.origin}/join/${props.roomState.code}`
+  const url = `${window.location.origin}/r/${props.roomState.code}`
   if (navigator.share) {
     navigator.share({
       title: 'Join my Surri game!',
