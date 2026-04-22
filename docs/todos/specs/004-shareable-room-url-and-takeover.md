@@ -1,6 +1,6 @@
 # Spec 004 — Shareable Room URL + Mid-Game Seat Takeover + Spectator Mode
 
-**Status**: Draft — awaiting review
+**Status**: Reviewed — core approach approved; multi-device/multi-tab edge cases need a second pass before implementation
 **Authored**: 2026-04-19
 **Touches**: `server/server.js`, `client/src/App.vue`, `client/src/components/{WaitingRoom,GameBoard,LobbyScreen}.vue`, `docs/SocketAPI.md`
 
@@ -584,13 +584,28 @@ Add a "URL conventions" section: `/r/{CODE}` is the canonical room URL; `/join/{
 
 ## 9. Open Questions
 
-1. **Bot race mitigation** (§5a): Option A (simple, let bot's last action through) vs. Option B (abort flag, ~5 lines in aiPlayer.js). Recommend B. Confirm.
-2. **Spectator offer TTL** (§5d): no TTL vs. 15s re-offer. Recommend no-TTL v1 with the simple "re-run on spectator disconnect" handler. Confirm.
-3. **Two-tab same-playerId** (§5c, §6h): currently proposed to allow (user gets two seats). Alternative: block with "you're already seated". Minor issue; flag.
-4. **Manual seat selection** (§2b): v1 auto-picks lowest-indexed bot. v2 could let spectators click a seat and claim it. Out of scope now; document as future.
-5. **Name overwrite on takeover** (§3c): `seats[seat].name = 'Alice'` overwrites "Bot 1". Alternative: append `"Bot 1 → Alice"` for the current round, reset to "Alice" next round. Current proposal: immediate overwrite. Confirm.
-6. **Spectator persistence across refresh**: a spectator refreshes the page — should they auto-rejoin as spectator? Their socket disconnects; they're removed from `room.spectators`. The refresh-load triggers `join_room`, which routes back to spectator mode. Works by default; no code needed. Mention in docs.
-7. **Rate-limiting**: the `/r/{CODE}` URL is discoverable (4-char codes are guessable). Not a new risk (the existing `/join/{CODE}` URL shares this property), but worth confirming the user is OK with the threat model. An attacker who guesses a live room code could become a spectator or takeover a bot. Mitigation — longer codes, passwords on rooms — is out of scope.
+### Resolved
+
+1. **Bot race mitigation** (§5a): **Option B (abort flag in aiPlayer.js)** — the reviewer flagged safety as the priority. Spend the ~5 extra lines to prevent bot actions after takeover.
+3. **Two-tab same-playerId** (§5c, §6h): **Allow.** Reviewer: "we can live with it, ignore." Two-tab users can end up in two seats of the same game; document but don't block.
+5. **Name overwrite on takeover** (§3c): **Immediate overwrite.** `seats[seat].name = 'Alice'`. No interim "Bot 1 → Alice" label.
+6. **Spectator persistence across refresh**: **Intuitive approach — works by default.** Refresh routes back through `join_room` → spectator. No code change; just mention in docs.
+
+### Still open — needs another review pass
+
+2. **Spectator offer TTL** (§5d): no annotation. Proceed with no-TTL v1.
+4. **Manual seat selection** (§2b): no annotation. Proceed with auto-pick for v1; manual selection is a v2 enhancement.
+7. **Rate-limiting**: no annotation. Keep the current 4-char codes; threat model is unchanged from today's `/join/` link.
+
+### Follow-up from review — multi-device / multi-tab flow
+
+Reviewer flagged the auto-pick takeover policy and the URL-sync behaviour across multiple devices / tabs as needing clarification. Before implementing §2b and §4a, sketch the state machine explicitly for these scenarios:
+
+- Same user, same playerId, two browser tabs on the same device → two distinct seats (confirmed per §3 above, but describe the UX — is there a visual cue that "you are also at seat X in this room"?).
+- Same user, different device, while first device is still connected → rejoin takes priority over takeover (already covered in §3b Priority 1).
+- Same user, different device, first device disconnected but in grace period → second device becomes a spectator until grace expires, then is offered the original seat (already covered in §5f).
+
+Spelling out each sequence in a short table before coding will catch cases the current prose elides.
 
 ## 10. Critical Files
 
